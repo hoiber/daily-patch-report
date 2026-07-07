@@ -1,0 +1,741 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: CVE Daily Report API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: cves
+    description: CVE and vulnerability data
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /cves/daily:
+    get:
+      operationId: getDailyCves
+      tags: [cves]
+      summary: Get today's new CVEs
+      description: Returns CVEs published in the last 24 hours from NVD, patched ones first
+      parameters:
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          description: Filter by CVSS severity
+        - name: patchedOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Return only CVEs with known patches
+      responses:
+        "200":
+          description: List of CVEs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CveEntry"
+
+  /cves/kev:
+    get:
+      operationId: getKevList
+      tags: [cves]
+      summary: Get CISA Known Exploited Vulnerabilities
+      description: Returns actively exploited zero-days from CISA KEV catalog
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+          description: Maximum number of entries to return
+      responses:
+        "200":
+          description: List of known exploited vulnerabilities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KevEntry"
+
+  /patch-tuesday/issues:
+    get:
+      operationId: getPatchTuesdayIssues
+      tags: [patch-tuesday]
+      summary: Get community-reported known issues for a Patch Tuesday release
+      description: Aggregates RSS feeds from AskWoody, BornCity, and Windows-focused news sites for the given release window
+      parameters:
+        - name: releaseId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Release ID (e.g. 2025-Jun). Defaults to latest.
+      responses:
+        "200":
+          description: Known issues with fetch metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtIssuesResult"
+
+  /patch-tuesday/releases:
+    get:
+      operationId: getPatchTuesdayReleases
+      tags: [cves]
+      summary: List recent Patch Tuesday releases
+      description: Returns the last 12 monthly Patch Tuesday releases from MSRC
+      responses:
+        "200":
+          description: List of releases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PatchTuesdayRelease"
+
+  /patch-tuesday:
+    get:
+      operationId: getPatchTuesdayDigest
+      tags: [cves]
+      summary: Get Patch Tuesday CVEs for a release
+      description: Returns full CVE list and summary for a Patch Tuesday release
+      parameters:
+        - name: releaseId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Release ID (e.g. 2024-Dec). Defaults to latest."
+      responses:
+        "200":
+          description: Patch Tuesday digest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchTuesdayDigest"
+
+  /cves/weekly:
+    get:
+      operationId: getWeeklyCves
+      tags: [cves]
+      summary: Get all CVEs from the past 7 days
+      description: Returns the full list of CVEs published in the last 7 days, patched first
+      parameters:
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          description: Filter by CVSS severity
+        - name: patchedOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Return only CVEs with known patches
+      responses:
+        "200":
+          description: List of CVEs from the past 7 days
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CveEntry"
+
+  /cves/digest:
+    get:
+      operationId: getWeeklyDigest
+      tags: [cves]
+      summary: Get weekly digest grouped by platform
+      description: Returns the past 7 days of CVEs grouped by impacted platform/device type
+      responses:
+        "200":
+          description: Weekly digest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyDigest"
+
+  /cves/summary:
+    get:
+      operationId: getCveSummary
+      tags: [cves]
+      summary: Get daily summary stats
+      description: Returns aggregated stats for today's CVE report
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CveSummary"
+
+  /cves/{cveId}:
+    get:
+      operationId: getCveById
+      tags: [cves]
+      summary: Get CVE details
+      description: Returns detailed information for a specific CVE
+      parameters:
+        - name: cveId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: CVE ID (e.g. CVE-2024-12345)
+      responses:
+        "200":
+          description: CVE detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CveDetail"
+        "404":
+          description: CVE not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    CveEntry:
+      type: object
+      required:
+        - cveId
+        - description
+        - publishedDate
+        - lastModifiedDate
+        - severity
+        - hasKnownPatch
+        - isKnownExploited
+      properties:
+        cveId:
+          type: string
+        description:
+          type: string
+        publishedDate:
+          type: string
+        lastModifiedDate:
+          type: string
+        severity:
+          type: ["string", "null"]
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, null]
+        cvssScore:
+          type: ["number", "null"]
+        cvssVector:
+          type: ["string", "null"]
+        hasKnownPatch:
+          type: boolean
+        isKnownExploited:
+          type: boolean
+        affectedProducts:
+          type: array
+          items:
+            type: string
+        patchUrls:
+          type: array
+          items:
+            type: string
+        references:
+          type: array
+          items:
+            type: string
+        vendor:
+          type: ["string", "null"]
+        cweIds:
+          type: array
+          items:
+            type: string
+        platforms:
+          type: array
+          items:
+            type: string
+            enum:
+              - Windows
+              - macOS
+              - Linux
+              - iOS
+              - Android
+              - Network
+              - Server
+              - Cloud
+              - Browser
+              - Firmware
+              - Other
+        deviceType:
+          type: string
+          enum:
+            - Endpoint
+            - Endpoint VM
+            - Server
+            - Network
+            - Cloud
+            - Mobile
+            - Other
+
+    KevEntry:
+      type: object
+      required:
+        - cveId
+        - vendorProject
+        - product
+        - vulnerabilityName
+        - dateAdded
+        - shortDescription
+        - requiredAction
+        - dueDate
+        - knownRansomwareCampaignUse
+        - patchable
+        - platforms
+      properties:
+        cveId:
+          type: string
+        vendorProject:
+          type: string
+        product:
+          type: string
+        vulnerabilityName:
+          type: string
+        dateAdded:
+          type: string
+        shortDescription:
+          type: string
+        requiredAction:
+          type: string
+        dueDate:
+          type: string
+        knownRansomwareCampaignUse:
+          type: string
+        notes:
+          type: ["string", "null"]
+        severity:
+          type: ["string", "null"]
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, null]
+        cvssScore:
+          type: ["number", "null"]
+        patchable:
+          type: boolean
+          description: True when requiredAction indicates applying an update/patch exists
+        platforms:
+          type: array
+          items:
+            type: string
+            enum:
+              - Windows
+              - macOS
+              - Linux
+              - iOS
+              - Android
+              - Network
+              - Server
+              - Cloud
+              - Browser
+              - Firmware
+              - Other
+        deviceType:
+          type: string
+          enum:
+            - Endpoint
+            - Endpoint VM
+            - Server
+            - Network
+            - Cloud
+            - Mobile
+            - Other
+
+    CveDetail:
+      type: object
+      required:
+        - cveId
+        - description
+        - publishedDate
+        - lastModifiedDate
+        - severity
+        - hasKnownPatch
+        - isKnownExploited
+      properties:
+        cveId:
+          type: string
+        description:
+          type: string
+        publishedDate:
+          type: string
+        lastModifiedDate:
+          type: string
+        severity:
+          type: ["string", "null"]
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, null]
+        cvssScore:
+          type: ["number", "null"]
+        cvssVector:
+          type: ["string", "null"]
+        hasKnownPatch:
+          type: boolean
+        isKnownExploited:
+          type: boolean
+        affectedProducts:
+          type: array
+          items:
+            type: string
+        patchUrls:
+          type: array
+          items:
+            type: string
+        references:
+          type: array
+          items:
+            type: string
+        vendor:
+          type: ["string", "null"]
+        cweIds:
+          type: array
+          items:
+            type: string
+        platforms:
+          type: array
+          items:
+            type: string
+            enum:
+              - Windows
+              - macOS
+              - Linux
+              - iOS
+              - Android
+              - Network
+              - Server
+              - Cloud
+              - Browser
+              - Firmware
+              - Other
+        kevDetails:
+          $ref: "#/components/schemas/KevEntry"
+
+    CveSummary:
+      type: object
+      required:
+        - reportDate
+        - totalNew
+        - critical
+        - high
+        - medium
+        - low
+        - patched
+        - unpatched
+        - knownExploited
+        - newKevEntries
+        - topVendors
+      properties:
+        reportDate:
+          type: string
+        totalNew:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+        patched:
+          type: integer
+        unpatched:
+          type: integer
+        knownExploited:
+          type: integer
+        newKevEntries:
+          type: integer
+        topVendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorCount"
+
+    VendorCount:
+      type: object
+      required:
+        - vendor
+        - count
+      properties:
+        vendor:
+          type: string
+        count:
+          type: integer
+
+    PtIssuesResult:
+      type: object
+      required: [issues, fetchedAt, windowStart, windowEnd, releaseId]
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/PtIssue"
+        fetchedAt:
+          type: string
+        windowStart:
+          type: string
+        windowEnd:
+          type: string
+        releaseId:
+          type: string
+
+    PtIssue:
+      type: object
+      required: [id, title, url, source, sourceUrl, publishedDate, summary, category, affectedProducts]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+        source:
+          type: string
+        sourceUrl:
+          type: string
+        publishedDate:
+          type: string
+        summary:
+          type: string
+        category:
+          type: string
+          enum: [Regression, Bug, Advisory, Analysis, Workaround, Discussion]
+        affectedProducts:
+          type: array
+          items:
+            type: string
+
+    PatchTuesdayRelease:
+      type: object
+      required: [id, title, releaseDate]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        releaseDate:
+          type: string
+
+    PatchTuesdayCve:
+      type: object
+      required:
+        - cveId
+        - title
+        - severity
+        - isExploited
+        - isPubliclyDisclosed
+        - affectedProducts
+        - kbArticles
+        - patchUrls
+      properties:
+        cveId:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        severity:
+          type: ["string", "null"]
+        cvssScore:
+          type: ["number", "null"]
+        cvssVector:
+          type: ["string", "null"]
+        isExploited:
+          type: boolean
+        isPubliclyDisclosed:
+          type: boolean
+        affectedProducts:
+          type: array
+          items:
+            type: string
+        kbArticles:
+          type: array
+          items:
+            type: string
+        patchUrls:
+          type: array
+          items:
+            type: string
+        impactType:
+          type: ["string", "null"]
+        attackVector:
+          type: ["string", "null"]
+
+    PatchTuesdayDigest:
+      type: object
+      required:
+        - releaseId
+        - title
+        - releaseDate
+        - totalCves
+        - critical
+        - important
+        - moderate
+        - low
+        - exploited
+        - publiclyDisclosed
+        - cves
+      properties:
+        releaseId:
+          type: string
+        title:
+          type: string
+        releaseDate:
+          type: string
+        totalCves:
+          type: integer
+        critical:
+          type: integer
+        important:
+          type: integer
+        moderate:
+          type: integer
+        low:
+          type: integer
+        exploited:
+          type: integer
+        publiclyDisclosed:
+          type: integer
+        cves:
+          type: array
+          items:
+            $ref: "#/components/schemas/PatchTuesdayCve"
+
+    DailyTrend:
+      type: object
+      required:
+        - date
+        - total
+        - critical
+        - high
+        - medium
+        - low
+      properties:
+        date:
+          type: string
+        total:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+
+    PlatformGroup:
+      type: object
+      required:
+        - platform
+        - total
+        - critical
+        - high
+        - medium
+        - low
+        - patched
+        - unpatched
+        - knownExploited
+        - topCves
+      properties:
+        platform:
+          type: string
+        total:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+        patched:
+          type: integer
+        unpatched:
+          type: integer
+        knownExploited:
+          type: integer
+        topCves:
+          type: array
+          items:
+            $ref: "#/components/schemas/CveEntry"
+
+    WeeklyDigest:
+      type: object
+      required:
+        - startDate
+        - endDate
+        - totalCves
+        - critical
+        - high
+        - patched
+        - knownExploited
+        - platformGroups
+        - dailyTrend
+      properties:
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalCves:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        patched:
+          type: integer
+        knownExploited:
+          type: integer
+        platformGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformGroup"
+        dailyTrend:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyTrend"
