@@ -18,5 +18,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/artifacts/api-server/dist ./dist
 
-# Railway injects PORT at runtime; index.ts requires it to be set.
+# PORT must be set as a variable on the Railway service (Railway does not
+# inject it automatically just from generating a domain); index.ts requires
+# it and refuses to start otherwise.
+EXPOSE 8080
 CMD ["node", "--enable-source-maps", "dist/index.mjs"]
