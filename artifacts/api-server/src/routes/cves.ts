@@ -5,6 +5,7 @@ import {
   GetCveByIdParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { isSafeHttpUrl } from "../lib/url-safety";
 
 const router: IRouter = Router();
 
@@ -512,6 +513,7 @@ function extractFromNvdItem(
   const patchKeywords = ["patch", "fix", "advisory", "update", "bulletin", "release", "security"];
 
   for (const ref of cve.references ?? []) {
+    if (!isSafeHttpUrl(ref.url)) continue;
     references.push(ref.url);
     const tags: string[] = ref.tags ?? [];
     const urlLower = ref.url.toLowerCase();

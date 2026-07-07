@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetPatchTuesdayDigestQueryParams } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { isSafeHttpUrl } from "../lib/url-safety";
 
 const router: IRouter = Router();
 
@@ -226,7 +227,7 @@ function parseCvrf(doc: CvrfDocument, productMap: Map<string, string>): PtCve[] 
     for (const rem of remediations) {
       if (rem.Type === 2 || rem.Type === 1) {
         const url = rem.URL ?? "";
-        if (url) {
+        if (isSafeHttpUrl(url)) {
           patchUrls.push(url);
           const desc = strVal(rem.Description as { Value: string } | string | undefined);
           if (desc) kbArticles.push(desc);
@@ -378,6 +379,7 @@ function parseRssItems(xml: string) {
       if (hrefM) link = hrefM[1];
     }
     if (!link) link = extractTag(block, "guid") || extractTag(block, "id");
+    if (!isSafeHttpUrl(link)) link = "";
 
     // Date: RSS uses <pubDate>, Atom uses <updated> or <published>
     const pubDate = extractTag(block, "pubDate")
