@@ -17,7 +17,7 @@ A CVE / vulnerability reporting app: an Express API (`artifacts/api-server`) tha
 - Package manager is enforced: the root `preinstall` script fails if you're not using `pnpm` (no npm/yarn lockfiles allowed)
 - No test runner is configured in any package yet
 
-Required env vars: `DATABASE_URL` (Postgres, for `lib/db`), `PORT` (api-server and cve-dashboard, no default — fails fast if unset), `BASE_PATH` (cve-dashboard vite config, no default).
+Required env vars: `PORT` (api-server and cve-dashboard, no default — fails fast if unset), `BASE_PATH` (cve-dashboard vite config, no default). Optional: `NVD_API` (api-server) — an NVD API key, sent as the `apiKey` header on all NVD requests; raises the rate limit from 1 req/6s to 50 req/30s and lets the weekly-fetch severity buckets run concurrently instead of staggered. `DATABASE_URL` is only needed if `lib/db` is actually wired into a service (currently unused — see Workspace layout).
 
 ## Workspace layout
 
@@ -29,7 +29,7 @@ pnpm workspace (`pnpm-workspace.yaml`), packages under `artifacts/*`, `lib/*`, `
 - `lib/api-spec` — `openapi.yaml` is the **single source of truth** for the API contract. `orval.config.ts` drives codegen into both `lib/api-zod` and `lib/api-client-react` — never hand-edit files under either package's `generated/` folder.
 - `lib/api-zod` — generated Zod schemas, imported by `api-server` routes to validate query/path params (e.g. `GetDailyCvesQueryParams.parse(req.query)`)
 - `lib/api-client-react` — generated TanStack Query hooks + a hand-written `custom-fetch.ts` mutator (handles base-URL prefixing for non-web runtimes, bearer-token injection, JSON/text/blob body parsing, structured `ApiError`/`ResponseParseError`)
-- `lib/db` — Drizzle ORM + `pg`, Postgres. The schema (`src/schema/index.ts`) is currently just a template/placeholder — the app is not persisting anything to Postgres yet, it's a live-aggregation service.
+- `lib/db` — Drizzle ORM + `pg`, Postgres. The schema (`src/schema/index.ts`) is currently just a template/placeholder — the app is not persisting anything to Postgres yet, it's a live-aggregation service. Not depended on by any deployed service currently (`api-server` dropped the dependency since it never imported it).
 - `scripts` — misc standalone `tsx` scripts, not part of the build/deploy graph
 
 TypeScript: root `tsconfig.json` uses project references for `lib/db`, `lib/api-client-react`, `lib/api-zod` only (built via `tsc --build`). Packages under `artifacts/*` and `scripts` are *not* referenced — they typecheck independently via their own `tsc -p tsconfig.json --noEmit`. `tsconfig.base.json` is shared strict-mode config (`strictNullChecks`, `noImplicitAny`, etc., but `noUnusedLocals`/`strictFunctionTypes` off).
@@ -60,4 +60,6 @@ When changing API request/response shapes: edit `lib/api-spec/openapi.yaml` firs
 - `api-server`'s image is multi-stage: build stage runs `pnpm install` + the package's `build` script, runtime stage copies out only `dist/` (see Build notes above for why that's sufficient) onto a bare `node:24-slim`.
 - `cve-dashboard` is a single-stage image: it runs `vite build` then serves the static output via the existing `serve` script (`vite preview --host 0.0.0.0`, which handles SPA fallback routing), so `node_modules` (incl. `vite`) stays in the final image.
 - The generated API client calls relative `/api/...` paths (see `custom-fetch.ts` / `main.tsx`). Since the two services get separate public URLs on Railway (unlike the old single-origin Replit path-based routing), `cve-dashboard`'s Dockerfile takes a `VITE_API_URL` build arg that `main.tsx` passes to `setBaseUrl()` — set it as a Railway build variable on the dashboard service pointing at the api-server service's public URL. `api-server` already has permissive CORS (`app.use(cors())`), so no server-side change is needed for the cross-origin calls.
-- `api-server`'s `railway.json` sets `healthcheckPath: /api/healthz`.
+- `api-server`'s `railway.json` sets `healthcheckPath: /api/healthz`; `cve-dashboard`'s sets `healthcheckPath: /`.
+- Each service's Railway "Custom Start Command" must be left unset (or removed if previously set) so the Dockerfile's own `CMD` runs — a stale start command from before these Dockerfiles existed silently overrides `CMD` and is the most likely cause if a deploy builds fine but a container never starts, or `cve-dashboard` serves a dev-server response (`/@vite/client` injected into the HTML) instead of the built bundle.
+- Railway's config-as-code (`.railway/railway.ts` / `railway config apply`) is **not** used here — it can't coexist with the per-service `railway.json` files (Railway refuses to manage a service from both). `railway.json` is the source of truth for build/deploy settings; anything else (env vars, domains) is managed directly via `railway variable`/`railway domain` or the dashboard.

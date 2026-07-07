@@ -77,6 +77,12 @@ const CVE_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const KEV_CACHE_TTL = 60 * 60 * 1000;        // 1 hour
 const KEV_CVSS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
+// An NVD_API key raises the rate limit from 1 req/6s to 50 req/30s.
+const NVD_HEADERS: Record<string, string> = {
+  "User-Agent": "CVE-Daily-Report/1.0",
+  ...(process.env.NVD_API ? { apiKey: process.env.NVD_API } : {}),
+};
+
 // ─── KEV helpers ─────────────────────────────────────────────────────────────
 
 /** True when requiredAction says to apply an update/patch (not merely mitigate/disconnect). */
@@ -127,7 +133,7 @@ async function fetchKevCvssMap(): Promise<Map<string, { severity: "CRITICAL" | "
   while (startIndex < totalResults) {
     const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?isKevFilter&resultsPerPage=${pageSize}&startIndex=${startIndex}`;
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      const res = await fetch(url, { headers: NVD_HEADERS, signal: AbortSignal.timeout(20000) });
       if (!res.ok) {
         logger.warn({ status: res.status }, "NVD KEV CVSS fetch failed, skipping enrichment");
         break;
@@ -626,7 +632,7 @@ async function fetchDailyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]
   url.searchParams.set("resultsPerPage", "200");
 
   const res = await fetch(url.toString(), {
-    headers: { "User-Agent": "CVE-Daily-Report/1.0" },
+    headers: NVD_HEADERS,
     signal: AbortSignal.timeout(30000),
   });
 
@@ -688,7 +694,7 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
       url.searchParams.set("resultsPerPage", "500");
 
       const res = await fetch(url.toString(), {
-        headers: { "User-Agent": "CVE-Daily-Report/1.0" },
+        headers: NVD_HEADERS,
         signal: AbortSignal.timeout(60000),
       });
 
@@ -701,15 +707,21 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
       return (json.vulnerabilities ?? []).map((item) => extractFromNvdItem(item, kevMap));
     }
 
-    // NVD rate limit without key: 1 req / 6 s → stagger by 6 s each
+    // With an NVD_API key (50 req/30s) all 3 buckets can run concurrently.
+    // Without one, stagger by 6s each to respect the public 1 req/6s limit.
+    const hasApiKey = Boolean(process.env.NVD_API);
     const [critical, high, medium] = await Promise.all([
       fetchSeverityPage("CRITICAL"),
-      new Promise<CveEntry[]>((resolve) =>
-        setTimeout(() => resolve(fetchSeverityPage("HIGH")), 6000)
-      ),
-      new Promise<CveEntry[]>((resolve) =>
-        setTimeout(() => resolve(fetchSeverityPage("MEDIUM")), 12000)
-      ),
+      hasApiKey
+        ? fetchSeverityPage("HIGH")
+        : new Promise<CveEntry[]>((resolve) =>
+            setTimeout(() => resolve(fetchSeverityPage("HIGH")), 6000)
+          ),
+      hasApiKey
+        ? fetchSeverityPage("MEDIUM")
+        : new Promise<CveEntry[]>((resolve) =>
+            setTimeout(() => resolve(fetchSeverityPage("MEDIUM")), 12000)
+          ),
     ]);
 
     // Deduplicate (a CVE can theoretically appear in multiple buckets)
@@ -950,7 +962,7 @@ router.get("/cves/:cveId", async (req: Request, res: Response) => {
     url.searchParams.set("cveId", cveId);
 
     const nvdRes = await fetch(url.toString(), {
-      headers: { "User-Agent": "CVE-Daily-Report/1.0" },
+      headers: NVD_HEADERS,
       signal: AbortSignal.timeout(15000),
     });
 
