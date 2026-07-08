@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project is a CVE reporting application composed of a React dashboard (`artifacts/cve-dashboard`) and an Express API (`artifacts/api-server`) that aggregates vulnerability data from NVD, CISA KEV, Microsoft MSRC, and several RSS feeds. The deployment is currently **private**, so Replit edge controls reduce public-internet exposure; however, production viewers who can reach the app must still be treated as untrusted clients. The mockup sandbox artifact is development-only and out of scope unless production reachability is later demonstrated.
+This project is a CVE reporting application composed of a React dashboard (`artifacts/cve-dashboard`) and an Express API (`artifacts/api-server`) that aggregates vulnerability data from NVD, CISA KEV, Microsoft MSRC, and several RSS feeds. The app deploys as two separate public Railway services with no authentication layer and permissive CORS between them, so there is no privacy boundary reducing exposure — any internet client that can reach either service must be treated as a potential attacker. The mockup sandbox artifact is development-only and out of scope unless production reachability is later demonstrated.
 
 ## Assets
 
@@ -17,7 +17,7 @@ This project is a CVE reporting application composed of a React dashboard (`arti
 - **API to third-party data providers** — the API fetches JSON/XML/RSS from NVD, CISA, MSRC, Reddit, BleepingComputer, and Microsoft Tech Community. These sources are outside the application's control and their data must be treated as untrusted.
 - **API to in-memory cache** — cache keys and cache-miss behavior affect whether a request is cheap or triggers expensive upstream fan-out.
 - **Production vs dev-only artifacts** — `artifacts/mockup-sandbox` is assumed non-production; production scanning should focus on `artifacts/api-server`, `artifacts/cve-dashboard`, and shared `lib/*` packages unless deployment scope changes.
-- **Private deployment edge vs application logic** — private visibility blocks general public access, but any viewer authorized through Replit's deployment controls can still exercise application endpoints and should be considered a potential attacker.
+- **Public internet to application logic** — there is no edge control (network restriction, auth wall, or IP allowlist) limiting who can reach either Railway service, so any internet client is a potential attacker with full access to application endpoints.
 
 ## Scan Anchors
 
@@ -43,4 +43,4 @@ Availability is the main security concern for this project. Several routes can t
 
 ### Elevation of Privilege
 
-The current application has no in-app role model, but private deployment visibility should not be mistaken for application-layer authorization. If any future authenticated or admin-only features are added, route protection must be enforced server-side and shared API clients must not encourage token handling patterns that leak privileged credentials into the browser.
+The current application has no in-app role model and no deployment-level access control, so there is no authorization boundary at all today. If any future authenticated or admin-only features are added, route protection must be enforced server-side and shared API clients must not encourage token handling patterns that leak privileged credentials into the browser.
