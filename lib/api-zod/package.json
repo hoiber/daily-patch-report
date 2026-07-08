@@ -1,6 +1,6 @@
 {
   "name": "@workspace/api-zod",
-  "version": "2607.2",
+  "version": "2607.3",
   "private": true,
   "type": "module",
   "exports": {
