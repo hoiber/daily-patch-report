@@ -516,10 +516,12 @@ function extractFromNvdItem(
   // References — detect patch/advisory URLs
   const references: string[] = [];
   const patchUrls: string[] = [];
+  const seenReferenceUrls = new Set<string>();
   const patchKeywords = ["patch", "fix", "advisory", "update", "bulletin", "release", "security"];
 
   for (const ref of cve.references ?? []) {
-    if (!isSafeHttpUrl(ref.url)) continue;
+    if (!isSafeHttpUrl(ref.url) || seenReferenceUrls.has(ref.url)) continue;
+    seenReferenceUrls.add(ref.url);
     references.push(ref.url);
     const tags: string[] = ref.tags ?? [];
     const urlLower = ref.url.toLowerCase();
@@ -548,6 +550,21 @@ function extractFromNvdItem(
         const vendor = parts[3];
         const product = parts[4];
         const label = `${vendor}/${product}`;
+        if (!seenProducts.has(label)) {
+          seenProducts.add(label);
+          affectedProducts.push(label);
+        }
+      }
+    }
+  }
+
+  // Fall back to the CNA-supplied `affected` block when NVD hasn't published
+  // CPE configurations for this CVE yet (common while "Undergoing Analysis").
+  if (affectedProducts.length === 0) {
+    for (const item of cve.affected ?? []) {
+      for (const data of item.affectedData ?? []) {
+        if (!data.vendor || !data.product) continue;
+        const label = `${data.vendor}/${data.product}`;
         if (!seenProducts.has(label)) {
           seenProducts.add(label);
           affectedProducts.push(label);
@@ -610,6 +627,12 @@ interface NvdCveItem {
     references?: Array<{ url: string; tags?: string[] }>;
     configurations?: Array<{ nodes: NvdNode[] }>;
     weaknesses?: Array<{ description?: Array<{ value: string }> }>;
+    // CNA-supplied structured vendor/product data — present on CVE-record-v5
+    // style entries (common while a CVE is still "Undergoing Analysis" and
+    // NVD hasn't published CPE `configurations` for it yet).
+    affected?: Array<{
+      affectedData?: Array<{ vendor?: string; product?: string }>;
+    }>;
   };
 }
 
