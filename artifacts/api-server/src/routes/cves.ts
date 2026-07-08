@@ -3,9 +3,11 @@ import {
   GetDailyCvesQueryParams,
   GetKevListQueryParams,
   GetCveByIdParams,
+  GetCveChangesQueryParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { isSafeHttpUrl } from "../lib/url-safety";
+import { loadCveSnapshots, saveCveSnapshots, loadRecentCveChanges } from "../lib/cve-store";
 
 const router: IRouter = Router();
 
@@ -14,7 +16,7 @@ const router: IRouter = Router();
 export type Platform = "Windows" | "macOS" | "Linux" | "iOS" | "Android" | "Network" | "Server" | "Cloud" | "Browser" | "Firmware" | "Other";
 export type DeviceType = "Endpoint" | "Endpoint VM" | "Server" | "Network" | "Cloud" | "Mobile" | "Other";
 
-interface CveEntry {
+export interface CveEntry {
   cveId: string;
   description: string;
   publishedDate: string;
@@ -758,6 +760,11 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
     }
 
     setCache(cacheKey, allEntries, 60 * 60 * 1000); // 1-hour TTL
+
+    // Best-effort persistence — never let a slow/unavailable Postgres delay
+    // the response that triggered this fetch.
+    void saveCveSnapshots(allEntries);
+
     return allEntries;
   };
 
@@ -770,6 +777,14 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
 
 /** Fire-and-forget cache warmup — call after server starts */
 export async function warmWeeklyCache(): Promise<void> {
+  // If Postgres has a snapshot from a previous run, warm the cache from it
+  // immediately so the first request after a cold start doesn't wait on NVD.
+  const snapshot = await loadCveSnapshots();
+  if (snapshot && snapshot.length > 0) {
+    setCache("weekly_cves", snapshot, 60 * 60 * 1000);
+    logger.info({ count: snapshot.length }, "Warmed weekly CVE cache from Postgres snapshot");
+  }
+
   try {
     logger.info("Warming weekly CVE cache in background");
     const kevMap = await fetchKevCatalog();
@@ -842,6 +857,24 @@ router.get("/cves/kev", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch KEV list");
     res.status(502).json({ error: "Failed to fetch CISA KEV data" });
+  }
+});
+
+router.get("/cves/changes", async (req: Request, res: Response) => {
+  try {
+    const query = GetCveChangesQueryParams.parse(req.query);
+    const rows = await loadRecentCveChanges(query.limit);
+    const changes = rows.map((row) => ({
+      cveId: row.cveId,
+      field: row.field,
+      oldValue: row.oldValue,
+      newValue: row.newValue,
+      changedAt: row.changedAt.toISOString(),
+    }));
+    res.json(changes);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch CVE change history");
+    res.status(502).json({ error: "Failed to fetch CVE change history" });
   }
 });
 

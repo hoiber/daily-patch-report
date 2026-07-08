@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './cveChange';
 export * from './cveDetail';
 export * from './cveDetailPlatformsItem';
 export * from './cveDetailSeverity';
@@ -16,6 +17,7 @@ export * from './cveEntrySeverity';
 export * from './cveSummary';
 export * from './dailyTrend';
 export * from './errorResponse';
+export * from './getCveChangesParams';
 export * from './getDailyCvesParams';
 export * from './getDailyCvesSeverity';
 export * from './getKevListParams';

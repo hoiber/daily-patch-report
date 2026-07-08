@@ -16,10 +16,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CveChange,
   CveDetail,
   CveEntry,
   CveSummary,
   ErrorResponse,
+  GetCveChangesParams,
   GetDailyCvesParams,
   GetKevListParams,
   GetPatchTuesdayDigestParams,
@@ -281,6 +283,91 @@ export function useGetKevList<TData = Awaited<ReturnType<typeof getKevList>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetKevListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCveChangesUrl = (params?: GetCveChangesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/cves/changes?${stringifiedParams}` : `/api/cves/changes`
+}
+
+/**
+ * Returns the most recent tracked-field changes (severity, CVSS score, patch status, known-exploited status) recorded from successive weekly CVE fetches. Empty if no persistent store is configured.
+ * @summary Get recent CVE state changes
+ */
+export const getCveChanges = async (params?: GetCveChangesParams, options?: RequestInit): Promise<CveChange[]> => {
+
+  return customFetch<CveChange[]>(getGetCveChangesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCveChangesQueryKey = (params?: GetCveChangesParams,) => {
+    return [
+    `/api/cves/changes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCveChangesQueryOptions = <TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<unknown>>(params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCveChangesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCveChanges>>> = ({ signal }) => getCveChanges(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCveChangesQueryResult = NonNullable<Awaited<ReturnType<typeof getCveChanges>>>
+export type GetCveChangesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get recent CVE state changes
+ */
+
+export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<unknown>>(
+ params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCveChangesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

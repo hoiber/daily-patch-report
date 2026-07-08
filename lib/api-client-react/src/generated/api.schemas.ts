@@ -144,6 +144,17 @@ export interface KevEntry {
   deviceType?: KevEntryDeviceType;
 }
 
+export interface CveChange {
+  cveId: string;
+  /** Name of the tracked field that changed (e.g. severity, cvssScore, hasKnownPatch, isKnownExploited) */
+  field: string;
+  /** @nullable */
+  oldValue?: string | null;
+  /** @nullable */
+  newValue?: string | null;
+  changedAt: string;
+}
+
 /**
  * @nullable
  */
@@ -348,6 +359,14 @@ export const GetDailyCvesSeverity = {
 export type GetKevListParams = {
 /**
  * Maximum number of entries to return
+ */
+limit?: number;
+};
+
+export type GetCveChangesParams = {
+/**
+ * Maximum number of entries to return
+ * @maximum 100
  */
 limit?: number;
 };

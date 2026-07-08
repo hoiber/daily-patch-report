@@ -81,6 +81,31 @@ paths:
                 items:
                   $ref: "#/components/schemas/KevEntry"
 
+  /cves/changes:
+    get:
+      operationId: getCveChanges
+      tags: [cves]
+      summary: Get recent CVE state changes
+      description: Returns the most recent tracked-field changes (severity, CVSS score, patch status, known-exploited status) recorded from successive weekly CVE fetches. Empty if no persistent store is configured.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Maximum number of entries to return
+      responses:
+        "200":
+          description: List of recent CVE state changes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CveChange"
+
   /patch-tuesday/issues:
     get:
       operationId: getPatchTuesdayIssues
@@ -386,6 +411,25 @@ components:
             - Cloud
             - Mobile
             - Other
+
+    CveChange:
+      type: object
+      required:
+        - cveId
+        - field
+        - changedAt
+      properties:
+        cveId:
+          type: string
+        field:
+          type: string
+          description: Name of the tracked field that changed (e.g. severity, cvssScore, hasKnownPatch, isKnownExploited)
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: ["string", "null"]
+        changedAt:
+          type: string
 
     CveDetail:
       type: object

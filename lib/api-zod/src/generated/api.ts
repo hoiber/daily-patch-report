@@ -78,6 +78,29 @@ export const GetKevListResponse = zod.array(GetKevListResponseItem)
 
 
 /**
+ * Returns the most recent tracked-field changes (severity, CVSS score, patch status, known-exploited status) recorded from successive weekly CVE fetches. Empty if no persistent store is configured.
+ * @summary Get recent CVE state changes
+ */
+export const getCveChangesQueryLimitDefault = 20;
+export const getCveChangesQueryLimitMax = 100;
+
+
+
+export const GetCveChangesQueryParams = zod.object({
+  "limit": zod.coerce.number().max(getCveChangesQueryLimitMax).default(getCveChangesQueryLimitDefault).describe('Maximum number of entries to return')
+})
+
+export const GetCveChangesResponseItem = zod.object({
+  "cveId": zod.string(),
+  "field": zod.string().describe('Name of the tracked field that changed (e.g. severity, cvssScore, hasKnownPatch, isKnownExploited)'),
+  "oldValue": zod.string().nullish(),
+  "newValue": zod.string().nullish(),
+  "changedAt": zod.string()
+})
+export const GetCveChangesResponse = zod.array(GetCveChangesResponseItem)
+
+
+/**
  * Aggregates RSS feeds from AskWoody, BornCity, and Windows-focused news sites for the given release window
  * @summary Get community-reported known issues for a Patch Tuesday release
  */
