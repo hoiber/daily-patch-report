@@ -359,7 +359,7 @@ function stripHtml(html: string): string {
 }
 
 /** Unified RSS 2.0 + Atom 1.0 parser (Reddit returns Atom) */
-function parseRssItems(xml: string) {
+export function parseRssItems(xml: string) {
   const items: Array<{
     title: string; link: string; pubDate: string; description: string; categories: string[];
   }> = [];
@@ -441,7 +441,7 @@ const CATEGORY_RULES: Array<{ category: string; re: RegExp }> = [
   { category: "Analysis",    re: /analysis|summary|recap|review|overview|roundup|what.s new|what to expect/i },
 ];
 
-function classifyIssue(title: string, description: string): string {
+export function classifyIssue(title: string, description: string): string {
   const text = title + " " + description;
   for (const { category, re } of CATEGORY_RULES) {
     if (re.test(text)) return category;

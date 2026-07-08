@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project is a CVE reporting application composed of a React dashboard (`artifacts/cve-dashboard`) and an Express API (`artifacts/api-server`) that aggregates vulnerability data from NVD, CISA KEV, Microsoft MSRC, and several RSS feeds. The app deploys as two separate public Railway services with no authentication layer and permissive CORS between them, so there is no privacy boundary reducing exposure — any internet client that can reach either service must be treated as a potential attacker. The mockup sandbox artifact is development-only and out of scope unless production reachability is later demonstrated.
+This project is a CVE reporting application composed of a React dashboard (`artifacts/cve-dashboard`) and an Express API (`artifacts/api-server`) that aggregates vulnerability data from NVD, CISA KEV, Microsoft MSRC, and several RSS feeds. `cve-dashboard` is the only service with a public Railway domain; `api-server` sits on Railway's private network and is reached solely through `cve-dashboard`'s own server-side proxy (`vite preview`'s `preview.proxy`, driven by `API_INTERNAL_URL`) — it has no public domain of its own. Neither service has an authentication layer, so any internet client that can reach the dashboard must still be treated as a potential attacker; it just no longer has a direct network path to `api-server`. (`api-server`'s permissive CORS middleware is not a production trust boundary — it exists for the local-dev case where `VITE_API_URL` points the dashboard directly at a separately-running `api-server`, bypassing the proxy.) A staging Postgres database exists (`lib/db`) but is not yet consumed by any service, so it is not currently part of the threat surface. The mockup sandbox artifact is development-only and out of scope unless production reachability is later demonstrated.
 
 ## Assets
 
@@ -13,11 +13,11 @@ This project is a CVE reporting application composed of a React dashboard (`arti
 
 ## Trust Boundaries
 
-- **Browser to API** — all dashboard interactions cross into the Express API. Query strings and path parameters are untrusted and must not trigger disproportionate server work.
+- **Browser to dashboard to API** — all dashboard interactions cross into the Express API via `cve-dashboard`'s server-side proxy. Query strings and path parameters are untrusted and must not trigger disproportionate server work; the proxy hop doesn't add authorization, only network isolation.
 - **API to third-party data providers** — the API fetches JSON/XML/RSS from NVD, CISA, MSRC, Reddit, BleepingComputer, and Microsoft Tech Community. These sources are outside the application's control and their data must be treated as untrusted.
 - **API to in-memory cache** — cache keys and cache-miss behavior affect whether a request is cheap or triggers expensive upstream fan-out.
 - **Production vs dev-only artifacts** — `artifacts/mockup-sandbox` is assumed non-production; production scanning should focus on `artifacts/api-server`, `artifacts/cve-dashboard`, and shared `lib/*` packages unless deployment scope changes.
-- **Public internet to application logic** — there is no edge control (network restriction, auth wall, or IP allowlist) limiting who can reach either Railway service, so any internet client is a potential attacker with full access to application endpoints.
+- **Public internet to dashboard** — there is no edge control (network restriction, auth wall, or IP allowlist) limiting who can reach `cve-dashboard`, so any internet client is a potential attacker with full access to application endpoints via the proxy. `api-server` itself has no public network path in production.
 
 ## Scan Anchors
 
@@ -39,7 +39,7 @@ The application is primarily read-only, but shared client utilities can attach b
 
 ### Denial of Service
 
-Availability is the main security concern for this project. Several routes can trigger slow upstream API calls, XML/RSS parsing, and large response assembly. The service must ensure that untrusted clients cannot amplify work with cache-busting inputs, concurrent cache-miss stampedes, or unbounded repeated requests. Expensive endpoints should coalesce identical work and degrade gracefully when upstream providers are slow or rate-limit the application.
+Availability is the main security concern for this project. Several routes can trigger slow upstream API calls, XML/RSS parsing, and large response assembly. The service must ensure that untrusted clients cannot amplify work with cache-busting inputs, concurrent cache-miss stampedes, or unbounded repeated requests. Expensive endpoints should coalesce identical work and degrade gracefully when upstream providers are slow or rate-limit the application. `api-server` applies a per-IP fixed-window rate limit (`src/middlewares/rate-limit.ts`, 120 req/min) as a blanket mitigation against sustained abuse; this depends on `cve-dashboard`'s proxy forwarding the real client IP via `X-Forwarded-For` (`xfwd: true` in `vite.config.ts`) and `api-server` trusting that one hop (`app.set("trust proxy", 1)`) — if that proxy hop is ever changed, verify per-client identification still works, or every user will collapse onto one rate-limit bucket.
 
 ### Elevation of Privilege
 

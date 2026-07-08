@@ -1,5 +1,5 @@
 # Build context is the repo root (this is a pnpm workspace; api-server depends
-# on workspace packages lib/db and lib/api-zod via `workspace:*`).
+# on workspace package lib/api-zod via `workspace:*`).
 # Railway service settings: leave "Root Directory" unset (repo root) and set
 # "Dockerfile Path" to artifacts/api-server/Dockerfile.
 

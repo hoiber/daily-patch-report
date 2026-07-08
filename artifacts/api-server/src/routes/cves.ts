@@ -11,8 +11,8 @@ const router: IRouter = Router();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Platform = "Windows" | "macOS" | "Linux" | "iOS" | "Android" | "Network" | "Server" | "Cloud" | "Browser" | "Firmware" | "Other";
-type DeviceType = "Endpoint" | "Endpoint VM" | "Server" | "Network" | "Cloud" | "Mobile" | "Other";
+export type Platform = "Windows" | "macOS" | "Linux" | "iOS" | "Android" | "Network" | "Server" | "Cloud" | "Browser" | "Firmware" | "Other";
+export type DeviceType = "Endpoint" | "Endpoint VM" | "Server" | "Network" | "Cloud" | "Mobile" | "Other";
 
 interface CveEntry {
   cveId: string;
@@ -318,7 +318,7 @@ const DESC_PLATFORM_HINTS: Array<{ keywords: RegExp; platform: Platform }> = [
   { keywords: /\bserver\b|\bdatabase\b|\bweb server\b/i, platform: "Server" },
 ];
 
-function detectPlatforms(cpeStrings: string[], description: string): Platform[] {
+export function detectPlatforms(cpeStrings: string[], description: string): Platform[] {
   const found = new Set<Platform>();
 
   for (const cpe of cpeStrings) {
@@ -418,7 +418,7 @@ const DESC_DEVICE_TYPE_HINTS: Array<{ keywords: RegExp; deviceType: DeviceType }
   { keywords: /\baws\b|\bazure\b|\bgcp\b|\bcloud\b/i, deviceType: "Cloud" },
 ];
 
-function detectDeviceType(cpeStrings: string[], description: string): DeviceType {
+export function detectDeviceType(cpeStrings: string[], description: string): DeviceType {
   for (const cpe of cpeStrings) {
     const parts = cpe.split(":");
     if (parts.length < 5) continue;
