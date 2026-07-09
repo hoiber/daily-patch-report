@@ -1,6 +1,6 @@
 {
   "name": "@workspace/db",
-  "version": "2607.5",
+  "version": "2607.6",
   "private": true,
   "type": "module",
   "exports": {

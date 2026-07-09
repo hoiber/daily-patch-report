@@ -96,6 +96,26 @@ paths:
             default: 20
             maximum: 100
           description: Maximum number of entries to return
+        - name: field
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [severity, cvssScore, hasKnownPatch, isKnownExploited]
+          description: Filter to changes of a single tracked field
+        - name: cveId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter to changes for a single CVE
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Number of entries to skip, for pagination
       responses:
         "200":
           description: List of recent CVE state changes, newest first
@@ -105,6 +125,78 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CveChange"
+
+  /cves/search:
+    get:
+      operationId: getCvesSearch
+      tags: [cves]
+      summary: Search CVEs by ID, description, or vendor
+      description: Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Search text, matched against CVE ID, description, and vendor
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+          description: Maximum number of entries to return
+      responses:
+        "200":
+          description: Matching CVEs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CveEntry"
+
+  /cves/trend:
+    get:
+      operationId: getCvesTrend
+      tags: [cves]
+      summary: Get extended historical CVE volume trend
+      description: Returns per-day severity counts over a longer window than the 7-day weekly digest, derived from persisted CVE snapshots. Empty if no persistent store is configured or not enough history has accumulated yet.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+          description: Number of trailing days to cover (clamped to 1-90)
+      responses:
+        "200":
+          description: Daily severity counts, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyTrend"
+
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags: [health]
+      summary: Get internal operational metrics
+      description: Returns in-process cache hit/miss counters, last successful/failed fetch timestamps per upstream source, and Postgres write counters. For operational visibility, not end-user facing.
+      responses:
+        "200":
+          description: Metrics snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metrics"
 
   /patch-tuesday/issues:
     get:
@@ -783,3 +875,77 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DailyTrend"
+
+    MetricsLastFetch:
+      type: object
+      properties:
+        daily:
+          type: ["string", "null"]
+        weekly:
+          type: ["string", "null"]
+        kev:
+          type: ["string", "null"]
+        ptReleases:
+          type: ["string", "null"]
+        ptDigest:
+          type: ["string", "null"]
+
+    MetricsLastError:
+      type: object
+      properties:
+        daily:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        weekly:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        kev:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        ptReleases:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        ptDigest:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+
+    MetricsErrorDetail:
+      type: ["object", "null"]
+      properties:
+        message:
+          type: string
+        at:
+          type: string
+
+    MetricsDb:
+      type: object
+      required:
+        - configured
+        - writeSuccesses
+        - writeFailures
+      properties:
+        configured:
+          type: boolean
+        writeSuccesses:
+          type: integer
+        writeFailures:
+          type: integer
+
+    Metrics:
+      type: object
+      required:
+        - cacheHits
+        - cacheMisses
+        - lastFetch
+        - lastError
+        - db
+      properties:
+        cacheHits:
+          type: object
+          additionalProperties:
+            type: integer
+        cacheMisses:
+          type: object
+          additionalProperties:
+            type: integer
+        lastFetch:
+          $ref: "#/components/schemas/MetricsLastFetch"
+        lastError:
+          $ref: "#/components/schemas/MetricsLastError"
+        db:
+          $ref: "#/components/schemas/MetricsDb"

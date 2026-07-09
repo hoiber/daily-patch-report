@@ -2,6 +2,12 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { GetPatchTuesdayDigestQueryParams } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { isSafeHttpUrl } from "../lib/url-safety";
+import * as metrics from "../lib/metrics";
+
+/** Collapses the per-release `pt_digest_<releaseId>` cache keys into one metrics bucket. */
+function metricsKeyFor(cacheKey: string): string {
+  return cacheKey.startsWith("pt_digest_") ? "pt_digest" : cacheKey;
+}
 
 const router: IRouter = Router();
 
@@ -38,7 +44,12 @@ interface CacheEntry<T> {
 const cache = new Map<string, CacheEntry<unknown>>();
 function getCache<T>(key: string): T | null {
   const e = cache.get(key);
-  if (!e || Date.now() > e.expiresAt) { cache.delete(key); return null; }
+  if (!e || Date.now() > e.expiresAt) {
+    cache.delete(key);
+    metrics.recordCacheMiss(metricsKeyFor(key));
+    return null;
+  }
+  metrics.recordCacheHit(metricsKeyFor(key));
   return e.data as T;
 }
 function setCache<T>(key: string, data: T, ttlMs: number) {
@@ -56,6 +67,15 @@ async function fetchReleases(): Promise<PtRelease[]> {
   const cached = getCache<PtRelease[]>("pt_releases");
   if (cached) return cached;
 
+  try {
+    return await doFetchReleases();
+  } catch (err) {
+    metrics.recordFetchError("ptReleases", err);
+    throw err;
+  }
+}
+
+async function doFetchReleases(): Promise<PtRelease[]> {
   logger.info("Fetching MSRC releases list");
   const res = await fetch(`${MSRC_BASE}/updates`, {
     headers: { Accept: "application/json", "User-Agent": "CVE-Daily-Report/1.0" },
@@ -78,6 +98,7 @@ async function fetchReleases(): Promise<PtRelease[]> {
     .slice(0, 12);
 
   setCache("pt_releases", releases, RELEASES_TTL);
+  metrics.recordFetchSuccess("ptReleases");
   return releases;
 }
 
@@ -285,45 +306,51 @@ async function fetchDigest(releaseId: string): Promise<{
   const cached = getCache<ReturnType<typeof fetchDigest> extends Promise<infer T> ? T : never>(cacheKey);
   if (cached) return cached;
 
-  logger.info({ releaseId }, "Fetching MSRC CVRF document");
-  const res = await fetch(`${MSRC_BASE}/cvrf/${releaseId}`, {
-    headers: { Accept: "application/json", "User-Agent": "CVE-Daily-Report/1.0" },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!res.ok) throw new Error(`MSRC CVRF fetch failed: ${res.status} for ${releaseId}`);
+  try {
+    logger.info({ releaseId }, "Fetching MSRC CVRF document");
+    const res = await fetch(`${MSRC_BASE}/cvrf/${releaseId}`, {
+      headers: { Accept: "application/json", "User-Agent": "CVE-Daily-Report/1.0" },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`MSRC CVRF fetch failed: ${res.status} for ${releaseId}`);
 
-  const doc = (await res.json()) as CvrfDocument;
+    const doc = (await res.json()) as CvrfDocument;
 
-  // Build product ID → name map
-  const productMap = new Map<string, string>();
-  for (const p of toArray(doc.ProductTree?.FullProductName)) {
-    productMap.set(p.ProductID, p.Value);
+    // Build product ID → name map
+    const productMap = new Map<string, string>();
+    for (const p of toArray(doc.ProductTree?.FullProductName)) {
+      productMap.set(p.ProductID, p.Value);
+    }
+
+    const cves = parseCvrf(doc, productMap);
+
+    const title = strVal(doc.DocumentTitle) || releaseId;
+    const releaseDate =
+      doc.DocumentTracking?.InitialReleaseDate?.split("T")[0] ??
+      doc.DocumentTracking?.CurrentReleaseDate?.split("T")[0] ??
+      "";
+
+    const digest = {
+      releaseId,
+      title,
+      releaseDate,
+      totalCves: cves.length,
+      critical: cves.filter((c) => c.severity === "Critical").length,
+      important: cves.filter((c) => c.severity === "Important").length,
+      moderate: cves.filter((c) => c.severity === "Moderate").length,
+      low: cves.filter((c) => c.severity === "Low").length,
+      exploited: cves.filter((c) => c.isExploited).length,
+      publiclyDisclosed: cves.filter((c) => c.isPubliclyDisclosed).length,
+      cves,
+    };
+
+    setCache(cacheKey, digest, DIGEST_TTL);
+    metrics.recordFetchSuccess("ptDigest");
+    return digest;
+  } catch (err) {
+    metrics.recordFetchError("ptDigest", err);
+    throw err;
   }
-
-  const cves = parseCvrf(doc, productMap);
-
-  const title = strVal(doc.DocumentTitle) || releaseId;
-  const releaseDate =
-    doc.DocumentTracking?.InitialReleaseDate?.split("T")[0] ??
-    doc.DocumentTracking?.CurrentReleaseDate?.split("T")[0] ??
-    "";
-
-  const digest = {
-    releaseId,
-    title,
-    releaseDate,
-    totalCves: cves.length,
-    critical: cves.filter((c) => c.severity === "Critical").length,
-    important: cves.filter((c) => c.severity === "Important").length,
-    moderate: cves.filter((c) => c.severity === "Moderate").length,
-    low: cves.filter((c) => c.severity === "Low").length,
-    exploited: cves.filter((c) => c.isExploited).length,
-    publiclyDisclosed: cves.filter((c) => c.isPubliclyDisclosed).length,
-    cves,
-  };
-
-  setCache(cacheKey, digest, DIGEST_TTL);
-  return digest;
 }
 
 // ─── RSS / Known Issues ───────────────────────────────────────────────────────

@@ -84,10 +84,13 @@ export const GetKevListResponse = zod.array(GetKevListResponseItem)
 export const getCveChangesQueryLimitDefault = 20;
 export const getCveChangesQueryLimitMax = 100;
 
-
+export const getCveChangesQueryOffsetDefault = 0;
 
 export const GetCveChangesQueryParams = zod.object({
-  "limit": zod.coerce.number().max(getCveChangesQueryLimitMax).default(getCveChangesQueryLimitDefault).describe('Maximum number of entries to return')
+  "limit": zod.coerce.number().max(getCveChangesQueryLimitMax).default(getCveChangesQueryLimitDefault).describe('Maximum number of entries to return'),
+  "field": zod.enum(['severity', 'cvssScore', 'hasKnownPatch', 'isKnownExploited']).optional().describe('Filter to changes of a single tracked field'),
+  "cveId": zod.coerce.string().optional().describe('Filter to changes for a single CVE'),
+  "offset": zod.coerce.number().default(getCveChangesQueryOffsetDefault).describe('Number of entries to skip, for pagination')
 })
 
 export const GetCveChangesResponseItem = zod.object({
@@ -98,6 +101,111 @@ export const GetCveChangesResponseItem = zod.object({
   "changedAt": zod.string()
 })
 export const GetCveChangesResponse = zod.array(GetCveChangesResponseItem)
+
+
+/**
+ * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
+ * @summary Search CVEs by ID, description, or vendor
+ */
+export const getCvesSearchQueryQMin = 2;
+
+export const getCvesSearchQueryLimitDefault = 25;
+export const getCvesSearchQueryLimitMax = 100;
+
+
+
+export const GetCvesSearchQueryParams = zod.object({
+  "q": zod.coerce.string().min(getCvesSearchQueryQMin).describe('Search text, matched against CVE ID, description, and vendor'),
+  "limit": zod.coerce.number().max(getCvesSearchQueryLimitMax).default(getCvesSearchQueryLimitDefault).describe('Maximum number of entries to return')
+})
+
+export const GetCvesSearchResponseItem = zod.object({
+  "cveId": zod.string(),
+  "description": zod.string(),
+  "publishedDate": zod.string(),
+  "lastModifiedDate": zod.string(),
+  "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
+  "cvssScore": zod.number().nullish(),
+  "cvssVector": zod.string().nullish(),
+  "hasKnownPatch": zod.boolean(),
+  "isKnownExploited": zod.boolean(),
+  "affectedProducts": zod.array(zod.string()).optional(),
+  "patchUrls": zod.array(zod.string()).optional(),
+  "references": zod.array(zod.string()).optional(),
+  "vendor": zod.string().nullish(),
+  "cweIds": zod.array(zod.string()).optional(),
+  "platforms": zod.array(zod.enum(['Windows', 'macOS', 'Linux', 'iOS', 'Android', 'Network', 'Server', 'Cloud', 'Browser', 'Firmware', 'Other'])).optional(),
+  "deviceType": zod.enum(['Endpoint', 'Endpoint VM', 'Server', 'Network', 'Cloud', 'Mobile', 'Other']).optional()
+})
+export const GetCvesSearchResponse = zod.array(GetCvesSearchResponseItem)
+
+
+/**
+ * Returns per-day severity counts over a longer window than the 7-day weekly digest, derived from persisted CVE snapshots. Empty if no persistent store is configured or not enough history has accumulated yet.
+ * @summary Get extended historical CVE volume trend
+ */
+export const getCvesTrendQueryDaysDefault = 30;
+export const getCvesTrendQueryDaysMax = 90;
+
+
+
+export const GetCvesTrendQueryParams = zod.object({
+  "days": zod.coerce.number().min(1).max(getCvesTrendQueryDaysMax).default(getCvesTrendQueryDaysDefault).describe('Number of trailing days to cover (clamped to 1-90)')
+})
+
+export const GetCvesTrendResponseItem = zod.object({
+  "date": zod.string(),
+  "total": zod.number(),
+  "critical": zod.number(),
+  "high": zod.number(),
+  "medium": zod.number(),
+  "low": zod.number()
+})
+export const GetCvesTrendResponse = zod.array(GetCvesTrendResponseItem)
+
+
+/**
+ * Returns in-process cache hit/miss counters, last successful/failed fetch timestamps per upstream source, and Postgres write counters. For operational visibility, not end-user facing.
+ * @summary Get internal operational metrics
+ */
+export const GetMetricsResponse = zod.object({
+  "cacheHits": zod.record(zod.string(), zod.number()),
+  "cacheMisses": zod.record(zod.string(), zod.number()),
+  "lastFetch": zod.object({
+  "daily": zod.string().nullish(),
+  "weekly": zod.string().nullish(),
+  "kev": zod.string().nullish(),
+  "ptReleases": zod.string().nullish(),
+  "ptDigest": zod.string().nullish()
+}),
+  "lastError": zod.object({
+  "daily": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "weekly": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "kev": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "ptReleases": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "ptDigest": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish()
+}),
+  "db": zod.object({
+  "configured": zod.boolean(),
+  "writeSuccesses": zod.number(),
+  "writeFailures": zod.number()
+})
+})
 
 
 /**

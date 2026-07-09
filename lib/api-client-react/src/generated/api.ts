@@ -20,8 +20,11 @@ import type {
   CveDetail,
   CveEntry,
   CveSummary,
+  DailyTrend,
   ErrorResponse,
   GetCveChangesParams,
+  GetCvesSearchParams,
+  GetCvesTrendParams,
   GetDailyCvesParams,
   GetKevListParams,
   GetPatchTuesdayDigestParams,
@@ -29,6 +32,7 @@ import type {
   GetWeeklyCvesParams,
   HealthStatus,
   KevEntry,
+  Metrics,
   PatchTuesdayDigest,
   PatchTuesdayRelease,
   PtIssuesResult,
@@ -368,6 +372,254 @@ export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCveChangesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCvesSearchUrl = (params: GetCvesSearchParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/cves/search?${stringifiedParams}` : `/api/cves/search`
+}
+
+/**
+ * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
+ * @summary Search CVEs by ID, description, or vendor
+ */
+export const getCvesSearch = async (params: GetCvesSearchParams, options?: RequestInit): Promise<CveEntry[]> => {
+
+  return customFetch<CveEntry[]>(getGetCvesSearchUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCvesSearchQueryKey = (params?: GetCvesSearchParams,) => {
+    return [
+    `/api/cves/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCvesSearchQueryOptions = <TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<unknown>>(params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCvesSearchQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCvesSearch>>> = ({ signal }) => getCvesSearch(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCvesSearchQueryResult = NonNullable<Awaited<ReturnType<typeof getCvesSearch>>>
+export type GetCvesSearchQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search CVEs by ID, description, or vendor
+ */
+
+export function useGetCvesSearch<TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<unknown>>(
+ params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCvesSearchQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCvesTrendUrl = (params?: GetCvesTrendParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/cves/trend?${stringifiedParams}` : `/api/cves/trend`
+}
+
+/**
+ * Returns per-day severity counts over a longer window than the 7-day weekly digest, derived from persisted CVE snapshots. Empty if no persistent store is configured or not enough history has accumulated yet.
+ * @summary Get extended historical CVE volume trend
+ */
+export const getCvesTrend = async (params?: GetCvesTrendParams, options?: RequestInit): Promise<DailyTrend[]> => {
+
+  return customFetch<DailyTrend[]>(getGetCvesTrendUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCvesTrendQueryKey = (params?: GetCvesTrendParams,) => {
+    return [
+    `/api/cves/trend`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCvesTrendQueryOptions = <TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<unknown>>(params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCvesTrendQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCvesTrend>>> = ({ signal }) => getCvesTrend(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCvesTrendQueryResult = NonNullable<Awaited<ReturnType<typeof getCvesTrend>>>
+export type GetCvesTrendQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get extended historical CVE volume trend
+ */
+
+export function useGetCvesTrend<TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<unknown>>(
+ params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCvesTrendQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetMetricsUrl = () => {
+
+
+
+
+  return `/api/metrics`
+}
+
+/**
+ * Returns in-process cache hit/miss counters, last successful/failed fetch timestamps per upstream source, and Postgres write counters. For operational visibility, not end-user facing.
+ * @summary Get internal operational metrics
+ */
+export const getMetrics = async ( options?: RequestInit): Promise<Metrics> => {
+
+  return customFetch<Metrics>(getGetMetricsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMetricsQueryKey = () => {
+    return [
+    `/api/metrics`
+    ] as const;
+    }
+
+
+export const getGetMetricsQueryOptions = <TData = Awaited<ReturnType<typeof getMetrics>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMetricsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMetrics>>> = ({ signal }) => getMetrics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMetricsQueryResult = NonNullable<Awaited<ReturnType<typeof getMetrics>>>
+export type GetMetricsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get internal operational metrics
+ */
+
+export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMetricsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -335,6 +335,53 @@ export interface WeeklyDigest {
   dailyTrend: DailyTrend[];
 }
 
+export interface MetricsLastFetch {
+  /** @nullable */
+  daily?: string | null;
+  /** @nullable */
+  weekly?: string | null;
+  /** @nullable */
+  kev?: string | null;
+  /** @nullable */
+  ptReleases?: string | null;
+  /** @nullable */
+  ptDigest?: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type MetricsErrorDetail = {
+  message?: string;
+  at?: string;
+} | null;
+
+export interface MetricsLastError {
+  daily?: MetricsErrorDetail | null;
+  weekly?: MetricsErrorDetail | null;
+  kev?: MetricsErrorDetail | null;
+  ptReleases?: MetricsErrorDetail | null;
+  ptDigest?: MetricsErrorDetail | null;
+}
+
+export interface MetricsDb {
+  configured: boolean;
+  writeSuccesses: number;
+  writeFailures: number;
+}
+
+export type MetricsCacheHits = {[key: string]: number};
+
+export type MetricsCacheMisses = {[key: string]: number};
+
+export interface Metrics {
+  cacheHits: MetricsCacheHits;
+  cacheMisses: MetricsCacheMisses;
+  lastFetch: MetricsLastFetch;
+  lastError: MetricsLastError;
+  db: MetricsDb;
+}
+
 export type GetDailyCvesParams = {
 /**
  * Filter by CVSS severity
@@ -369,6 +416,50 @@ export type GetCveChangesParams = {
  * @maximum 100
  */
 limit?: number;
+/**
+ * Filter to changes of a single tracked field
+ */
+field?: GetCveChangesField;
+/**
+ * Filter to changes for a single CVE
+ */
+cveId?: string;
+/**
+ * Number of entries to skip, for pagination
+ */
+offset?: number;
+};
+
+export type GetCveChangesField = typeof GetCveChangesField[keyof typeof GetCveChangesField];
+
+
+export const GetCveChangesField = {
+  severity: 'severity',
+  cvssScore: 'cvssScore',
+  hasKnownPatch: 'hasKnownPatch',
+  isKnownExploited: 'isKnownExploited',
+} as const;
+
+export type GetCvesSearchParams = {
+/**
+ * Search text, matched against CVE ID, description, and vendor
+ * @minLength 2
+ */
+q: string;
+/**
+ * Maximum number of entries to return
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type GetCvesTrendParams = {
+/**
+ * Number of trailing days to cover (clamped to 1-90)
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
 };
 
 export type GetPatchTuesdayIssuesParams = {

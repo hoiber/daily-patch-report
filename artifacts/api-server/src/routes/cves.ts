@@ -4,10 +4,19 @@ import {
   GetKevListQueryParams,
   GetCveByIdParams,
   GetCveChangesQueryParams,
+  GetCvesSearchQueryParams,
+  GetCvesTrendQueryParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { isSafeHttpUrl } from "../lib/url-safety";
-import { loadCveSnapshots, saveCveSnapshots, loadRecentCveChanges } from "../lib/cve-store";
+import * as metrics from "../lib/metrics";
+import {
+  loadCveSnapshots,
+  saveCveSnapshots,
+  loadRecentCveChanges,
+  searchCveSnapshots,
+  loadTrendBuckets,
+} from "../lib/cve-store";
 
 const router: IRouter = Router();
 
@@ -66,8 +75,10 @@ function getCache<T>(key: string): T | null {
   const entry = cache.get(key);
   if (!entry || Date.now() > entry.expiresAt) {
     cache.delete(key);
+    metrics.recordCacheMiss(key);
     return null;
   }
+  metrics.recordCacheHit(key);
   return entry.data as T;
 }
 
@@ -183,55 +194,61 @@ async function fetchKevCatalog(): Promise<Map<string, KevEntry>> {
   const cached = getCache<Map<string, KevEntry>>("kev_map");
   if (cached) return cached;
 
-  logger.info("Fetching CISA KEV catalog");
-  const [cisaRes, cvssMap] = await Promise.all([
-    fetch(
-      "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
-      { signal: AbortSignal.timeout(15000) }
-    ),
-    fetchKevCvssMap().catch(() => new Map()),
-  ]);
-  if (!cisaRes.ok) throw new Error(`KEV fetch failed: ${cisaRes.status}`);
+  try {
+    logger.info("Fetching CISA KEV catalog");
+    const [cisaRes, cvssMap] = await Promise.all([
+      fetch(
+        "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+        { signal: AbortSignal.timeout(15000) }
+      ),
+      fetchKevCvssMap().catch(() => new Map()),
+    ]);
+    if (!cisaRes.ok) throw new Error(`KEV fetch failed: ${cisaRes.status}`);
 
-  const json = (await cisaRes.json()) as {
-    vulnerabilities: Array<{
-      cveID: string;
-      vendorProject: string;
-      product: string;
-      vulnerabilityName: string;
-      dateAdded: string;
-      shortDescription: string;
-      requiredAction: string;
-      dueDate: string;
-      knownRansomwareCampaignUse: string;
-      notes?: string;
-    }>;
-  };
+    const json = (await cisaRes.json()) as {
+      vulnerabilities: Array<{
+        cveID: string;
+        vendorProject: string;
+        product: string;
+        vulnerabilityName: string;
+        dateAdded: string;
+        shortDescription: string;
+        requiredAction: string;
+        dueDate: string;
+        knownRansomwareCampaignUse: string;
+        notes?: string;
+      }>;
+    };
 
-  const map = new Map<string, KevEntry>();
-  for (const v of json.vulnerabilities) {
-    const nvd = cvssMap.get(v.cveID);
-    map.set(v.cveID, {
-      cveId: v.cveID,
-      vendorProject: v.vendorProject,
-      product: v.product,
-      vulnerabilityName: v.vulnerabilityName,
-      dateAdded: v.dateAdded,
-      shortDescription: v.shortDescription,
-      requiredAction: v.requiredAction,
-      dueDate: v.dueDate,
-      knownRansomwareCampaignUse: v.knownRansomwareCampaignUse,
-      notes: v.notes ?? null,
-      severity: nvd?.severity ?? null,
-      cvssScore: nvd?.cvssScore ?? null,
-      patchable: detectPatchable(v.requiredAction),
-      platforms: detectPlatformFromVendor(v.vendorProject, v.shortDescription),
-      deviceType: detectDeviceTypeFromVendor(v.vendorProject, v.product, v.shortDescription),
-    });
+    const map = new Map<string, KevEntry>();
+    for (const v of json.vulnerabilities) {
+      const nvd = cvssMap.get(v.cveID);
+      map.set(v.cveID, {
+        cveId: v.cveID,
+        vendorProject: v.vendorProject,
+        product: v.product,
+        vulnerabilityName: v.vulnerabilityName,
+        dateAdded: v.dateAdded,
+        shortDescription: v.shortDescription,
+        requiredAction: v.requiredAction,
+        dueDate: v.dueDate,
+        knownRansomwareCampaignUse: v.knownRansomwareCampaignUse,
+        notes: v.notes ?? null,
+        severity: nvd?.severity ?? null,
+        cvssScore: nvd?.cvssScore ?? null,
+        patchable: detectPatchable(v.requiredAction),
+        platforms: detectPlatformFromVendor(v.vendorProject, v.shortDescription),
+        deviceType: detectDeviceTypeFromVendor(v.vendorProject, v.product, v.shortDescription),
+      });
+    }
+
+    setCache("kev_map", map, KEV_CACHE_TTL);
+    metrics.recordFetchSuccess("kev");
+    return map;
+  } catch (err) {
+    metrics.recordFetchError("kev", err);
+    throw err;
   }
-
-  setCache("kev_map", map, KEV_CACHE_TTL);
-  return map;
 }
 
 // ─── Platform detection ───────────────────────────────────────────────────────
@@ -643,45 +660,51 @@ async function fetchDailyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]
   const cached = getCache<CveEntry[]>(cacheKey);
   if (cached) return cached;
 
-  // Last 24 hours
-  const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const pubStartDate = yesterday.toISOString().replace(/\.\d{3}Z$/, ".000");
-  const pubEndDate = now.toISOString().replace(/\.\d{3}Z$/, ".000");
+  try {
+    // Last 24 hours
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const pubStartDate = yesterday.toISOString().replace(/\.\d{3}Z$/, ".000");
+    const pubEndDate = now.toISOString().replace(/\.\d{3}Z$/, ".000");
 
-  logger.info({ pubStartDate, pubEndDate }, "Fetching NVD daily CVEs");
+    logger.info({ pubStartDate, pubEndDate }, "Fetching NVD daily CVEs");
 
-  const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
-  url.searchParams.set("pubStartDate", pubStartDate);
-  url.searchParams.set("pubEndDate", pubEndDate);
-  url.searchParams.set("resultsPerPage", "200");
+    const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
+    url.searchParams.set("pubStartDate", pubStartDate);
+    url.searchParams.set("pubEndDate", pubEndDate);
+    url.searchParams.set("resultsPerPage", "200");
 
-  const res = await fetch(url.toString(), {
-    headers: NVD_HEADERS,
-    signal: AbortSignal.timeout(30000),
-  });
+    const res = await fetch(url.toString(), {
+      headers: NVD_HEADERS,
+      signal: AbortSignal.timeout(30000),
+    });
 
-  if (!res.ok) {
-    throw new Error(`NVD API error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      throw new Error(`NVD API error: ${res.status} ${res.statusText}`);
+    }
+
+    const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
+    const items = json.vulnerabilities ?? [];
+
+    const entries = items.map((item) => extractFromNvdItem(item, kevMap));
+
+    // Sort: patched first, then by severity, then by CVSS score desc
+    const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+    entries.sort((a, b) => {
+      if (a.hasKnownPatch !== b.hasKnownPatch) return a.hasKnownPatch ? -1 : 1;
+      const sa = severityOrder[a.severity ?? ""] ?? 4;
+      const sb = severityOrder[b.severity ?? ""] ?? 4;
+      if (sa !== sb) return sa - sb;
+      return (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
+    });
+
+    setCache(cacheKey, entries, CVE_CACHE_TTL);
+    metrics.recordFetchSuccess("daily");
+    return entries;
+  } catch (err) {
+    metrics.recordFetchError("daily", err);
+    throw err;
   }
-
-  const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
-  const items = json.vulnerabilities ?? [];
-
-  const entries = items.map((item) => extractFromNvdItem(item, kevMap));
-
-  // Sort: patched first, then by severity, then by CVSS score desc
-  const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-  entries.sort((a, b) => {
-    if (a.hasKnownPatch !== b.hasKnownPatch) return a.hasKnownPatch ? -1 : 1;
-    const sa = severityOrder[a.severity ?? ""] ?? 4;
-    const sb = severityOrder[b.severity ?? ""] ?? 4;
-    if (sa !== sb) return sa - sb;
-    return (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
-  });
-
-  setCache(cacheKey, entries, CVE_CACHE_TTL);
-  return entries;
 }
 
 // ─── Weekly fetch (7 days) ───────────────────────────────────────────────────
@@ -701,71 +724,77 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
   }
 
   const doFetch = async (): Promise<CveEntry[]> => {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const pubStartDate = weekAgo.toISOString().replace(/\.\d{3}Z$/, ".000");
-    const pubEndDate = now.toISOString().replace(/\.\d{3}Z$/, ".000");
+    try {
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const pubStartDate = weekAgo.toISOString().replace(/\.\d{3}Z$/, ".000");
+      const pubEndDate = now.toISOString().replace(/\.\d{3}Z$/, ".000");
 
-    logger.info({ pubStartDate, pubEndDate }, "Fetching NVD weekly CVEs");
+      logger.info({ pubStartDate, pubEndDate }, "Fetching NVD weekly CVEs");
 
-    // NVD's public (no-key) API is slow for large date ranges.
-    // Strategy: make 3 small, fast, parallel requests filtered by severity.
-    // Each severity bucket typically has <200 results and responds in 5–20 s.
-    async function fetchSeverityPage(severity: string): Promise<CveEntry[]> {
-      const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
-      url.searchParams.set("pubStartDate", pubStartDate);
-      url.searchParams.set("pubEndDate", pubEndDate);
-      url.searchParams.set("cvssV3Severity", severity);
-      url.searchParams.set("resultsPerPage", "500");
+      // NVD's public (no-key) API is slow for large date ranges.
+      // Strategy: make 3 small, fast, parallel requests filtered by severity.
+      // Each severity bucket typically has <200 results and responds in 5–20 s.
+      async function fetchSeverityPage(severity: string): Promise<CveEntry[]> {
+        const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
+        url.searchParams.set("pubStartDate", pubStartDate);
+        url.searchParams.set("pubEndDate", pubEndDate);
+        url.searchParams.set("cvssV3Severity", severity);
+        url.searchParams.set("resultsPerPage", "500");
 
-      const res = await fetch(url.toString(), {
-        headers: NVD_HEADERS,
-        signal: AbortSignal.timeout(60000),
-      });
+        const res = await fetch(url.toString(), {
+          headers: NVD_HEADERS,
+          signal: AbortSignal.timeout(60000),
+        });
 
-      if (!res.ok) {
-        logger.warn({ severity, status: res.status }, "NVD severity fetch failed");
-        return [];
+        if (!res.ok) {
+          logger.warn({ severity, status: res.status }, "NVD severity fetch failed");
+          return [];
+        }
+
+        const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
+        return (json.vulnerabilities ?? []).map((item) => extractFromNvdItem(item, kevMap));
       }
 
-      const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
-      return (json.vulnerabilities ?? []).map((item) => extractFromNvdItem(item, kevMap));
-    }
+      // With an NVD_API key (50 req/30s) all 3 buckets can run concurrently.
+      // Without one, stagger by 6s each to respect the public 1 req/6s limit.
+      const hasApiKey = Boolean(process.env.NVD_API);
+      const [critical, high, medium] = await Promise.all([
+        fetchSeverityPage("CRITICAL"),
+        hasApiKey
+          ? fetchSeverityPage("HIGH")
+          : new Promise<CveEntry[]>((resolve) =>
+              setTimeout(() => resolve(fetchSeverityPage("HIGH")), 6000)
+            ),
+        hasApiKey
+          ? fetchSeverityPage("MEDIUM")
+          : new Promise<CveEntry[]>((resolve) =>
+              setTimeout(() => resolve(fetchSeverityPage("MEDIUM")), 12000)
+            ),
+      ]);
 
-    // With an NVD_API key (50 req/30s) all 3 buckets can run concurrently.
-    // Without one, stagger by 6s each to respect the public 1 req/6s limit.
-    const hasApiKey = Boolean(process.env.NVD_API);
-    const [critical, high, medium] = await Promise.all([
-      fetchSeverityPage("CRITICAL"),
-      hasApiKey
-        ? fetchSeverityPage("HIGH")
-        : new Promise<CveEntry[]>((resolve) =>
-            setTimeout(() => resolve(fetchSeverityPage("HIGH")), 6000)
-          ),
-      hasApiKey
-        ? fetchSeverityPage("MEDIUM")
-        : new Promise<CveEntry[]>((resolve) =>
-            setTimeout(() => resolve(fetchSeverityPage("MEDIUM")), 12000)
-          ),
-    ]);
-
-    // Deduplicate (a CVE can theoretically appear in multiple buckets)
-    const seen = new Set<string>();
-    const allEntries: CveEntry[] = [];
-    for (const entry of [...critical, ...high, ...medium]) {
-      if (!seen.has(entry.cveId)) {
-        seen.add(entry.cveId);
-        allEntries.push(entry);
+      // Deduplicate (a CVE can theoretically appear in multiple buckets)
+      const seen = new Set<string>();
+      const allEntries: CveEntry[] = [];
+      for (const entry of [...critical, ...high, ...medium]) {
+        if (!seen.has(entry.cveId)) {
+          seen.add(entry.cveId);
+          allEntries.push(entry);
+        }
       }
+
+      setCache(cacheKey, allEntries, 60 * 60 * 1000); // 1-hour TTL
+      metrics.recordFetchSuccess("weekly");
+
+      // Best-effort persistence — never let a slow/unavailable Postgres delay
+      // the response that triggered this fetch.
+      void saveCveSnapshots(allEntries);
+
+      return allEntries;
+    } catch (err) {
+      metrics.recordFetchError("weekly", err);
+      throw err;
     }
-
-    setCache(cacheKey, allEntries, 60 * 60 * 1000); // 1-hour TTL
-
-    // Best-effort persistence — never let a slow/unavailable Postgres delay
-    // the response that triggered this fetch.
-    void saveCveSnapshots(allEntries);
-
-    return allEntries;
   };
 
   weeklyFetchInFlight = doFetch().finally(() => {
@@ -863,7 +892,12 @@ router.get("/cves/kev", async (req: Request, res: Response) => {
 router.get("/cves/changes", async (req: Request, res: Response) => {
   try {
     const query = GetCveChangesQueryParams.parse(req.query);
-    const rows = await loadRecentCveChanges(query.limit);
+    const rows = await loadRecentCveChanges({
+      limit: query.limit,
+      field: query.field,
+      cveId: query.cveId,
+      offset: query.offset,
+    });
     const changes = rows.map((row) => ({
       cveId: row.cveId,
       field: row.field,
@@ -875,6 +909,47 @@ router.get("/cves/changes", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch CVE change history");
     res.status(502).json({ error: "Failed to fetch CVE change history" });
+  }
+});
+
+router.get("/cves/search", async (req: Request, res: Response) => {
+  try {
+    const query = GetCvesSearchQueryParams.parse(req.query);
+    const limit = query.limit ?? 25;
+    const dbResults = await searchCveSnapshots(query.q, limit);
+
+    if (dbResults !== null) {
+      res.json(dbResults);
+      return;
+    }
+
+    // No persistent store configured — fall back to filtering the current
+    // in-memory weekly cache, scoped to whatever the last 7-day fetch covers.
+    const kevMap = await fetchKevCatalog();
+    const cves = await fetchWeeklyCves(kevMap);
+    const needle = query.q.toLowerCase();
+    const matches = cves
+      .filter((c) =>
+        c.cveId.toLowerCase().includes(needle) ||
+        c.description.toLowerCase().includes(needle) ||
+        (c.vendor ?? "").toLowerCase().includes(needle)
+      )
+      .slice(0, limit);
+    res.json(matches);
+  } catch (err) {
+    req.log.error({ err }, "Failed to search CVEs");
+    res.status(502).json({ error: "Failed to search CVE data" });
+  }
+});
+
+router.get("/cves/trend", async (req: Request, res: Response) => {
+  try {
+    const query = GetCvesTrendQueryParams.parse(req.query);
+    const buckets = await loadTrendBuckets(query.days ?? 30);
+    res.json(buckets ?? []);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load CVE trend");
+    res.status(502).json({ error: "Failed to fetch CVE trend data" });
   }
 });
 
