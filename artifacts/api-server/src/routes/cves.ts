@@ -655,48 +655,20 @@ interface NvdCveItem {
   };
 }
 
+// Daily is a strict subset of weekly's 7-day window (same NVD fields, same
+// KEV cross-referencing), so it's derived from the already-fetched/warmed/
+// persisted weekly dataset instead of issuing its own separate NVD call —
+// that also means it's never left uncached after a restart or TTL expiry
+// the way its own independent live fetch would be.
 async function fetchDailyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]> {
   const cacheKey = "daily_cves";
   const cached = getCache<CveEntry[]>(cacheKey);
   if (cached) return cached;
 
   try {
-    // Last 24 hours
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const pubStartDate = yesterday.toISOString().replace(/\.\d{3}Z$/, ".000");
-    const pubEndDate = now.toISOString().replace(/\.\d{3}Z$/, ".000");
-
-    logger.info({ pubStartDate, pubEndDate }, "Fetching NVD daily CVEs");
-
-    const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
-    url.searchParams.set("pubStartDate", pubStartDate);
-    url.searchParams.set("pubEndDate", pubEndDate);
-    url.searchParams.set("resultsPerPage", "200");
-
-    const res = await fetch(url.toString(), {
-      headers: NVD_HEADERS,
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!res.ok) {
-      throw new Error(`NVD API error: ${res.status} ${res.statusText}`);
-    }
-
-    const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
-    const items = json.vulnerabilities ?? [];
-
-    const entries = items.map((item) => extractFromNvdItem(item, kevMap));
-
-    // Sort: patched first, then by severity, then by CVSS score desc
-    const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-    entries.sort((a, b) => {
-      if (a.hasKnownPatch !== b.hasKnownPatch) return a.hasKnownPatch ? -1 : 1;
-      const sa = severityOrder[a.severity ?? ""] ?? 4;
-      const sb = severityOrder[b.severity ?? ""] ?? 4;
-      if (sa !== sb) return sa - sb;
-      return (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
-    });
+    const weekly = await fetchWeeklyCves(kevMap);
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const entries = weekly.filter((c) => new Date(c.publishedDate).getTime() >= cutoff);
 
     setCache(cacheKey, entries, CVE_CACHE_TTL);
     metrics.recordFetchSuccess("daily");
@@ -804,7 +776,24 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
   return weeklyFetchInFlight;
 }
 
-/** Fire-and-forget cache warmup — call after server starts */
+/**
+ * Live NVD refresh + Postgres persistence (fetchWeeklyCves already persists
+ * internally). Called once at startup and on a recurring interval — see
+ * index.ts — so the cache is proactively kept warm instead of only
+ * refreshing reactively whenever a request happens to hit an expired one.
+ */
+export async function refreshCveCache(): Promise<void> {
+  try {
+    logger.info("Refreshing weekly CVE cache from NVD");
+    const kevMap = await fetchKevCatalog();
+    await fetchWeeklyCves(kevMap);
+    logger.info("Weekly CVE cache refreshed");
+  } catch (err) {
+    logger.warn({ err }, "Background weekly cache refresh failed (will retry on next request or interval)");
+  }
+}
+
+/** One-time cold-start warmup — call after server starts. */
 export async function warmWeeklyCache(): Promise<void> {
   // If Postgres has a snapshot from a previous run, warm the cache from it
   // immediately so the first request after a cold start doesn't wait on NVD.
@@ -814,14 +803,7 @@ export async function warmWeeklyCache(): Promise<void> {
     logger.info({ count: snapshot.length }, "Warmed weekly CVE cache from Postgres snapshot");
   }
 
-  try {
-    logger.info("Warming weekly CVE cache in background");
-    const kevMap = await fetchKevCatalog();
-    await fetchWeeklyCves(kevMap);
-    logger.info("Weekly CVE cache warmed");
-  } catch (err) {
-    logger.warn({ err }, "Background weekly cache warmup failed (will retry on next request)");
-  }
+  await refreshCveCache();
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
