@@ -685,10 +685,12 @@ async function fetchDailyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]
 // all callers await the same promise instead of starting duplicate requests.
 let weeklyFetchInFlight: Promise<CveEntry[]> | null = null;
 
-async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]> {
+async function fetchWeeklyCves(kevMap: Map<string, KevEntry>, opts?: { force?: boolean }): Promise<CveEntry[]> {
   const cacheKey = "weekly_cves";
-  const cached = getCache<CveEntry[]>(cacheKey);
-  if (cached) return cached;
+  if (!opts?.force) {
+    const cached = getCache<CveEntry[]>(cacheKey);
+    if (cached) return cached;
+  }
 
   if (weeklyFetchInFlight) {
     logger.info("Weekly CVE fetch already in-flight, waiting…");
@@ -781,12 +783,18 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[
  * internally). Called once at startup and on a recurring interval — see
  * index.ts — so the cache is proactively kept warm instead of only
  * refreshing reactively whenever a request happens to hit an expired one.
+ *
+ * Always forces a real fetch: at startup this runs right after the
+ * Postgres-snapshot warm-up sets "weekly_cves" with a fresh TTL, so an
+ * unforced call would just hit that entry and return immediately without
+ * ever actually refreshing — silently leaving Postgres stuck on whatever
+ * was last fetched, indefinitely, across restarts.
  */
 export async function refreshCveCache(): Promise<void> {
   try {
     logger.info("Refreshing weekly CVE cache from NVD");
     const kevMap = await fetchKevCatalog();
-    await fetchWeeklyCves(kevMap);
+    await fetchWeeklyCves(kevMap, { force: true });
     logger.info("Weekly CVE cache refreshed");
   } catch (err) {
     logger.warn({ err }, "Background weekly cache refresh failed (will retry on next request or interval)");
