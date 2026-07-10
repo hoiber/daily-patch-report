@@ -1,6 +1,6 @@
 {
   "name": "@workspace/api-client-react",
-  "version": "2607.6",
+  "version": "2607.7",
   "private": true,
   "type": "module",
   "exports": {
