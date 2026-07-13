@@ -131,7 +131,7 @@ function detectPlatformFromVendor(vendorProject: string, description: string): P
   return ["Other"];
 }
 
-/** Fetch CVSS scores for all KEV entries using NVD's isKevFilter param. Returns Map<cveId, {severity,cvssScore}>. */
+/** Fetch CVSS scores for all KEV entries using NVD's hasKev param. Returns Map<cveId, {severity,cvssScore}>. */
 async function fetchKevCvssMap(): Promise<Map<string, { severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | null; cvssScore: number | null }>> {
   const cached = getCache<Map<string, { severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | null; cvssScore: number | null }>>("kev_cvss_map");
   if (cached) return cached;
@@ -144,7 +144,7 @@ async function fetchKevCvssMap(): Promise<Map<string, { severity: "CRITICAL" | "
   let totalResults = Infinity;
 
   while (startIndex < totalResults) {
-    const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?isKevFilter&resultsPerPage=${pageSize}&startIndex=${startIndex}`;
+    const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?hasKev&resultsPerPage=${pageSize}&startIndex=${startIndex}`;
     try {
       const res = await fetch(url, { headers: NVD_HEADERS, signal: AbortSignal.timeout(20000) });
       if (!res.ok) {
