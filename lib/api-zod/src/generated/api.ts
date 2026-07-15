@@ -307,6 +307,25 @@ export const GetApplePatchesResponse = zod.object({
 
 
 /**
+ * Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the latest release, parsed from the ios-security-vulnerability-formatter service's full report.
+ * @summary Get per-CVE detail for the latest Apple security release
+ */
+export const GetAppleCvesParams = zod.object({
+  "platform": zod.enum(['ios', 'macos'])
+})
+
+export const GetAppleCvesResponse = zod.object({
+  "cves": zod.array(zod.object({
+  "cveId": zod.string(),
+  "description": zod.string().nullable(),
+  "activelyExploited": zod.boolean(),
+  "versionNote": zod.string().nullable(),
+  "nvdUrl": zod.string()
+}))
+})
+
+
+/**
  * Returns the full list of CVEs published in the last 7 days, patched first
  * @summary Get all CVEs from the past 7 days
  */

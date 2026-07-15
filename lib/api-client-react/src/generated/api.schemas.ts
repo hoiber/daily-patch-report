@@ -291,6 +291,20 @@ export interface ApplePatchesResult {
   fetchedAt: string;
 }
 
+export interface AppleCve {
+  cveId: string;
+  /** @nullable */
+  description: string | null;
+  activelyExploited: boolean;
+  /** @nullable */
+  versionNote: string | null;
+  nvdUrl: string;
+}
+
+export interface AppleCvesResult {
+  cves: AppleCve[];
+}
+
 export interface PatchTuesdayRelease {
   id: string;
   title: string;

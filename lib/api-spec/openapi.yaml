@@ -272,6 +272,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApplePatchesResult"
 
+  /apple/cves/{platform}:
+    get:
+      operationId: getAppleCves
+      tags: [apple]
+      summary: Get per-CVE detail for the latest Apple security release
+      description: Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the latest release, parsed from the ios-security-vulnerability-formatter service's full report.
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ios, macos]
+      responses:
+        "200":
+          description: Per-CVE detail for the latest release
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppleCvesResult"
+
   /cves/weekly:
     get:
       operationId: getWeeklyCves
@@ -743,6 +764,30 @@ components:
             $ref: "#/components/schemas/ApplePlatformDigest"
         fetchedAt:
           type: string
+
+    AppleCve:
+      type: object
+      required: [cveId, description, activelyExploited, versionNote, nvdUrl]
+      properties:
+        cveId:
+          type: string
+        description:
+          type: ["string", "null"]
+        activelyExploited:
+          type: boolean
+        versionNote:
+          type: ["string", "null"]
+        nvdUrl:
+          type: string
+
+    AppleCvesResult:
+      type: object
+      required: [cves]
+      properties:
+        cves:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppleCve"
 
     PatchTuesdayRelease:
       type: object

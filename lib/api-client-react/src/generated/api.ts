@@ -16,6 +16,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AppleCvesResult,
   ApplePatchesResult,
   CveChange,
   CveDetail,
@@ -947,6 +948,84 @@ export function useGetApplePatches<TData = Awaited<ReturnType<typeof getApplePat
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetApplePatchesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAppleCvesUrl = (platform: 'ios' | 'macos',) => {
+
+
+
+
+  return `/api/apple/cves/${platform}`
+}
+
+/**
+ * Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the latest release, parsed from the ios-security-vulnerability-formatter service's full report.
+ * @summary Get per-CVE detail for the latest Apple security release
+ */
+export const getAppleCves = async (platform: 'ios' | 'macos', options?: RequestInit): Promise<AppleCvesResult> => {
+
+  return customFetch<AppleCvesResult>(getGetAppleCvesUrl(platform),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAppleCvesQueryKey = (platform: 'ios' | 'macos',) => {
+    return [
+    `/api/apple/cves/${platform}`
+    ] as const;
+    }
+
+
+export const getGetAppleCvesQueryOptions = <TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<unknown>>(platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAppleCvesQueryKey(platform);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppleCves>>> = ({ signal }) => getAppleCves(platform, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(platform), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAppleCvesQueryResult = NonNullable<Awaited<ReturnType<typeof getAppleCves>>>
+export type GetAppleCvesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get per-CVE detail for the latest Apple security release
+ */
+
+export function useGetAppleCves<TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<unknown>>(
+ platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAppleCvesQueryOptions(platform,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
