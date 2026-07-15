@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { warmWeeklyCache, refreshCveCache } from "./routes/cves";
+import { warmApplePatches, scheduleAppleDailyFetch } from "./routes/apple-patches";
 
 // Slightly longer than the weekly cache's 1-hour TTL, so each tick lands
 // after the in-memory cache has actually expired and triggers a real
@@ -37,4 +38,9 @@ app.listen(port, (err) => {
   // Proactively keep it warm afterward, so a page load never has to be the
   // thing that triggers a live NVD re-fetch.
   setInterval(() => void refreshCveCache(), CACHE_REFRESH_INTERVAL_MS);
+
+  // Apple patch data refreshes on its own daily schedule (07:00 AEST) rather
+  // than this interval — warm from Postgres/catch up if stale, then arm the
+  // recurring daily tick. See routes/apple-patches.ts for why.
+  void warmApplePatches().then(() => scheduleAppleDailyFetch());
 });

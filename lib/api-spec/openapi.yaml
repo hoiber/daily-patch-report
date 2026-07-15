@@ -293,6 +293,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/AppleCvesResult"
 
+  /apple/history/{platform}:
+    get:
+      operationId: getAppleHistory
+      tags: [apple]
+      summary: Get historical Apple security releases
+      description: Returns every distinct (platform, version) release api-server has ever seen for this platform, newest first — an accumulating changelog independent of the upstream tool, which only ever reports the current latest release(s). Empty if no persistent store is configured.
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ios, macos]
+      responses:
+        "200":
+          description: Release history, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppleHistoryResult"
+
+  /apple/refresh:
+    post:
+      operationId: postAppleRefresh
+      tags: [apple]
+      summary: Force an immediate Apple patch data refresh
+      description: Bypasses the daily 07:00 AEST schedule and fetches now. Rate-limited to once every 5 minutes — returns 429 with a retryAfterSeconds field if called again too soon.
+      responses:
+        "200":
+          description: Refreshed release info per platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplePatchesResult"
+
   /cves/weekly:
     get:
       operationId: getWeeklyCves
@@ -788,6 +823,39 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppleCve"
+
+    AppleReleaseHistoryEntry:
+      type: object
+      required: [platform, version, updateName, releaseDate, cveCount, securityInfoUrl, activelyExploited, firstSeenAt, lastSeenAt]
+      properties:
+        platform:
+          type: string
+          enum: [ios, macos]
+        version:
+          type: string
+        updateName:
+          type: ["string", "null"]
+        releaseDate:
+          type: string
+        cveCount:
+          type: integer
+        securityInfoUrl:
+          type: ["string", "null"]
+        activelyExploited:
+          type: boolean
+        firstSeenAt:
+          type: string
+        lastSeenAt:
+          type: string
+
+    AppleHistoryResult:
+      type: object
+      required: [history]
+      properties:
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppleReleaseHistoryEntry"
 
     PatchTuesdayRelease:
       type: object

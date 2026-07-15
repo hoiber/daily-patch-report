@@ -8,10 +8,13 @@
 
 export * from './appleCve';
 export * from './appleCvesResult';
+export * from './appleHistoryResult';
 export * from './applePatchesResult';
 export * from './applePlatformDigest';
 export * from './applePlatformDigestPlatform';
 export * from './appleRelease';
+export * from './appleReleaseHistoryEntry';
+export * from './appleReleaseHistoryEntryPlatform';
 export * from './cveChange';
 export * from './cveDetail';
 export * from './cveDetailPlatformsItem';

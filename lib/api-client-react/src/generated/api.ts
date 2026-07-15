@@ -6,17 +6,22 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
 
 import type {
   AppleCvesResult,
+  AppleHistoryResult,
   ApplePatchesResult,
   CveChange,
   CveDetail,
@@ -1037,6 +1042,155 @@ export function useGetAppleCves<TData = Awaited<ReturnType<typeof getAppleCves>>
 
 
 
+
+export const getGetAppleHistoryUrl = (platform: 'ios' | 'macos',) => {
+
+
+
+
+  return `/api/apple/history/${platform}`
+}
+
+/**
+ * Returns every distinct (platform, version) release api-server has ever seen for this platform, newest first — an accumulating changelog independent of the upstream tool, which only ever reports the current latest release(s). Empty if no persistent store is configured.
+ * @summary Get historical Apple security releases
+ */
+export const getAppleHistory = async (platform: 'ios' | 'macos', options?: RequestInit): Promise<AppleHistoryResult> => {
+
+  return customFetch<AppleHistoryResult>(getGetAppleHistoryUrl(platform),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAppleHistoryQueryKey = (platform: 'ios' | 'macos',) => {
+    return [
+    `/api/apple/history/${platform}`
+    ] as const;
+    }
+
+
+export const getGetAppleHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<unknown>>(platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAppleHistoryQueryKey(platform);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppleHistory>>> = ({ signal }) => getAppleHistory(platform, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(platform), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAppleHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAppleHistory>>>
+export type GetAppleHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get historical Apple security releases
+ */
+
+export function useGetAppleHistory<TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<unknown>>(
+ platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAppleHistoryQueryOptions(platform,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getPostAppleRefreshUrl = () => {
+
+
+
+
+  return `/api/apple/refresh`
+}
+
+/**
+ * Bypasses the daily 07:00 AEST schedule and fetches now. Rate-limited to once every 5 minutes — returns 429 with a retryAfterSeconds field if called again too soon.
+ * @summary Force an immediate Apple patch data refresh
+ */
+export const postAppleRefresh = async ( options?: RequestInit): Promise<ApplePatchesResult> => {
+
+  return customFetch<ApplePatchesResult>(getPostAppleRefreshUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPostAppleRefreshMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAppleRefresh>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAppleRefresh>>, TError,void, TContext> => {
+
+const mutationKey = ['postAppleRefresh'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAppleRefresh>>, void> = () => {
+
+
+          return  postAppleRefresh(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAppleRefreshMutationResult = NonNullable<Awaited<ReturnType<typeof postAppleRefresh>>>
+
+    export type PostAppleRefreshMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Force an immediate Apple patch data refresh
+ */
+export const usePostAppleRefresh = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAppleRefresh>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postAppleRefresh>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostAppleRefreshMutationOptions(options));
+    }
 
 export const getGetWeeklyCvesUrl = (params?: GetWeeklyCvesParams,) => {
   const normalizedParams = new URLSearchParams();

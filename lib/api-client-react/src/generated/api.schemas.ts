@@ -305,6 +305,32 @@ export interface AppleCvesResult {
   cves: AppleCve[];
 }
 
+export type AppleReleaseHistoryEntryPlatform = typeof AppleReleaseHistoryEntryPlatform[keyof typeof AppleReleaseHistoryEntryPlatform];
+
+
+export const AppleReleaseHistoryEntryPlatform = {
+  ios: 'ios',
+  macos: 'macos',
+} as const;
+
+export interface AppleReleaseHistoryEntry {
+  platform: AppleReleaseHistoryEntryPlatform;
+  version: string;
+  /** @nullable */
+  updateName: string | null;
+  releaseDate: string;
+  cveCount: number;
+  /** @nullable */
+  securityInfoUrl: string | null;
+  activelyExploited: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export interface AppleHistoryResult {
+  history: AppleReleaseHistoryEntry[];
+}
+
 export interface PatchTuesdayRelease {
   id: string;
   title: string;

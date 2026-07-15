@@ -326,6 +326,51 @@ export const GetAppleCvesResponse = zod.object({
 
 
 /**
+ * Returns every distinct (platform, version) release api-server has ever seen for this platform, newest first — an accumulating changelog independent of the upstream tool, which only ever reports the current latest release(s). Empty if no persistent store is configured.
+ * @summary Get historical Apple security releases
+ */
+export const GetAppleHistoryParams = zod.object({
+  "platform": zod.enum(['ios', 'macos'])
+})
+
+export const GetAppleHistoryResponse = zod.object({
+  "history": zod.array(zod.object({
+  "platform": zod.enum(['ios', 'macos']),
+  "version": zod.string(),
+  "updateName": zod.string().nullable(),
+  "releaseDate": zod.string(),
+  "cveCount": zod.number(),
+  "securityInfoUrl": zod.string().nullable(),
+  "activelyExploited": zod.boolean(),
+  "firstSeenAt": zod.string(),
+  "lastSeenAt": zod.string()
+}))
+})
+
+
+/**
+ * Bypasses the daily 07:00 AEST schedule and fetches now. Rate-limited to once every 5 minutes — returns 429 with a retryAfterSeconds field if called again too soon.
+ * @summary Force an immediate Apple patch data refresh
+ */
+export const PostAppleRefreshResponse = zod.object({
+  "platforms": zod.array(zod.object({
+  "platform": zod.enum(['ios', 'macos']),
+  "releasesFound": zod.number(),
+  "willCombine": zod.boolean(),
+  "releases": zod.array(zod.object({
+  "version": zod.string().nullish(),
+  "updateName": zod.string().nullish(),
+  "releaseDate": zod.string(),
+  "cveCount": zod.number(),
+  "securityInfoUrl": zod.string().nullish(),
+  "activelyExploited": zod.boolean()
+}))
+})),
+  "fetchedAt": zod.string()
+})
+
+
+/**
  * Returns the full list of CVEs published in the last 7 days, patched first
  * @summary Get all CVEs from the past 7 days
  */
