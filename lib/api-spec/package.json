@@ -1,6 +1,6 @@
 {
   "name": "@workspace/api-spec",
-  "version": "2607.8",
+  "version": "2607.9",
   "private": true,
   "scripts": {
     "codegen": "orval --config ./orval.config.ts && pnpm -w run typecheck:libs"
