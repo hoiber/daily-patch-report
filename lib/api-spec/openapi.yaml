@@ -272,12 +272,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApplePatchesResult"
 
-  /apple/cves/{platform}:
+  /apple/cves/{platform}/{version}:
     get:
       operationId: getAppleCves
       tags: [apple]
-      summary: Get per-CVE detail for the latest Apple security release
-      description: Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the latest release, parsed from the ios-security-vulnerability-formatter service's full report.
+      summary: Get per-CVE detail for one specific Apple security release
+      description: Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the given (platform, version), as captured whenever that version was the current release. Empty if that version was never fetched (e.g. no persistent store configured and it isn't the live latest).
       parameters:
         - name: platform
           in: path
@@ -285,9 +285,14 @@ paths:
           schema:
             type: string
             enum: [ios, macos]
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: Per-CVE detail for the latest release
+          description: Per-CVE detail for the given release
           content:
             application/json:
               schema:

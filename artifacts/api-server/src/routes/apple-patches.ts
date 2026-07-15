@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { logger } from "../lib/logger";
 import * as metrics from "../lib/metrics";
-import { saveAppleRelease, loadLatestAppleReleases, loadAppleReleaseHistory } from "../lib/apple-store";
+import { saveAppleRelease, loadLatestAppleReleases, loadAppleReleaseHistory, loadAppleReleaseCves } from "../lib/apple-store";
 
 const router: IRouter = Router();
 
@@ -299,17 +299,34 @@ router.get("/apple/patches", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/apple/cves/:platform", async (req: Request, res: Response) => {
+router.get("/apple/cves/:platform/:version", async (req: Request, res: Response) => {
   const platform = req.params["platform"];
+  const version = req.params["version"];
   if (typeof platform !== "string" || !VALID_PLATFORMS.has(platform)) {
     res.status(400).json({ error: "platform must be 'ios' or 'macos'" });
     return;
   }
+  if (typeof version !== "string" || version.length === 0) {
+    res.status(400).json({ error: "version is required" });
+    return;
+  }
   try {
     await ensureWarm();
-    res.json({ cves: currentCves[platform as Platform] });
+    const p = platform as Platform;
+
+    // Persisted per-version detail covers any version we've ever fetched, current or historical.
+    const stored = await loadAppleReleaseCves(p, version);
+    if (stored !== null) {
+      res.json({ cves: stored });
+      return;
+    }
+
+    // Postgres not configured (or this version predates it being set up) — the in-memory
+    // cache only ever holds the live latest, so it can only answer for that exact version.
+    const currentVersion = currentSnapshot?.platforms.find((d) => d.platform === p)?.releases[0]?.version;
+    res.json({ cves: version === currentVersion ? currentCves[p] : [] });
   } catch (err) {
-    req.log.error({ err, platform }, "Failed to fetch Apple CVE detail");
+    req.log.error({ err, platform, version }, "Failed to fetch Apple CVE detail");
     res.status(502).json({ error: "Failed to fetch Apple CVE detail" });
   }
 });

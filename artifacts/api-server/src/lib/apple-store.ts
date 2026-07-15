@@ -1,4 +1,4 @@
-import { sql, desc, eq } from "drizzle-orm";
+import { sql, desc, eq, and } from "drizzle-orm";
 import { db, appleReleases, type AppleCveJson } from "@workspace/db";
 import { logger } from "./logger";
 import { increment } from "./metrics";
@@ -111,7 +111,27 @@ export async function loadLatestAppleReleases(): Promise<
   return result;
 }
 
-/** Full release history for one platform, newest first. Excludes the bulky per-CVE detail — see loadLatestAppleReleases for that. */
+/**
+ * Per-CVE detail for one specific (platform, version) release, as captured whenever that
+ * version was the "current" one at refresh time. Returns null if there's no such row (either
+ * Postgres isn't configured, or that version was never persisted) — callers should fall back
+ * to the in-memory "current" cache in that case, which only covers the live latest version.
+ */
+export async function loadAppleReleaseCves(platform: Platform, version: string): Promise<AppleCveJson[] | null> {
+  if (!db) return null;
+  try {
+    const [row] = await db
+      .select({ cves: appleReleases.cves })
+      .from(appleReleases)
+      .where(and(eq(appleReleases.platform, platform), eq(appleReleases.version, version)));
+    return row ? row.cves : null;
+  } catch (err) {
+    logger.warn({ err, platform, version }, "Failed to load Apple release CVE detail from Postgres");
+    return null;
+  }
+}
+
+/** Full release history for one platform, newest first. Excludes the bulky per-CVE detail — see loadAppleReleaseCves for that. */
 export async function loadAppleReleaseHistory(platform: Platform, limit: number): Promise<AppleReleaseHistoryEntry[]> {
   if (!db) return [];
   try {
