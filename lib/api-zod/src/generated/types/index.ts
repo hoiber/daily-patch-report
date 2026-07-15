@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './applePatchesResult';
+export * from './applePlatformDigest';
+export * from './applePlatformDigestPlatform';
+export * from './appleRelease';
 export * from './cveChange';
 export * from './cveDetail';
 export * from './cveDetailPlatformsItem';

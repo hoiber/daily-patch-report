@@ -259,6 +259,38 @@ export interface PtIssuesResult {
   releaseId: string;
 }
 
+export interface AppleRelease {
+  /** @nullable */
+  version?: string | null;
+  /** @nullable */
+  updateName?: string | null;
+  releaseDate: string;
+  cveCount: number;
+  /** @nullable */
+  securityInfoUrl?: string | null;
+  activelyExploited: boolean;
+}
+
+export type ApplePlatformDigestPlatform = typeof ApplePlatformDigestPlatform[keyof typeof ApplePlatformDigestPlatform];
+
+
+export const ApplePlatformDigestPlatform = {
+  ios: 'ios',
+  macos: 'macos',
+} as const;
+
+export interface ApplePlatformDigest {
+  platform: ApplePlatformDigestPlatform;
+  releasesFound: number;
+  willCombine: boolean;
+  releases: AppleRelease[];
+}
+
+export interface ApplePatchesResult {
+  platforms: ApplePlatformDigest[];
+  fetchedAt: string;
+}
+
 export interface PatchTuesdayRelease {
   id: string;
   title: string;

@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: cves
     description: CVE and vulnerability data
+  - name: apple
+    description: Apple iOS/iPadOS and macOS patch data (proxied from the ios-security-vulnerability-formatter service)
 paths:
   /healthz:
     get:
@@ -255,6 +257,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PatchTuesdayDigest"
+
+  /apple/patches:
+    get:
+      operationId: getApplePatches
+      tags: [apple]
+      summary: Get latest Apple iOS/iPadOS and macOS security releases
+      description: Returns the latest security releases (version, release date, CVE count, actively-exploited flag) for both iOS/iPadOS and macOS, proxied from the ios-security-vulnerability-formatter service.
+      responses:
+        "200":
+          description: Latest Apple release info per platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplePatchesResult"
 
   /cves/weekly:
     get:
@@ -683,6 +699,50 @@ components:
           type: array
           items:
             type: string
+
+    AppleRelease:
+      type: object
+      required: [releaseDate, cveCount, activelyExploited]
+      properties:
+        version:
+          type: ["string", "null"]
+        updateName:
+          type: ["string", "null"]
+        releaseDate:
+          type: string
+        cveCount:
+          type: integer
+        securityInfoUrl:
+          type: ["string", "null"]
+        activelyExploited:
+          type: boolean
+
+    ApplePlatformDigest:
+      type: object
+      required: [platform, releasesFound, willCombine, releases]
+      properties:
+        platform:
+          type: string
+          enum: [ios, macos]
+        releasesFound:
+          type: integer
+        willCombine:
+          type: boolean
+        releases:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppleRelease"
+
+    ApplePatchesResult:
+      type: object
+      required: [platforms, fetchedAt]
+      properties:
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplePlatformDigest"
+        fetchedAt:
+          type: string
 
     PatchTuesdayRelease:
       type: object

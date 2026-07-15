@@ -16,6 +16,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApplePatchesResult,
   CveChange,
   CveDetail,
   CveEntry,
@@ -868,6 +869,84 @@ export function useGetPatchTuesdayDigest<TData = Awaited<ReturnType<typeof getPa
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPatchTuesdayDigestQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetApplePatchesUrl = () => {
+
+
+
+
+  return `/api/apple/patches`
+}
+
+/**
+ * Returns the latest security releases (version, release date, CVE count, actively-exploited flag) for both iOS/iPadOS and macOS, proxied from the ios-security-vulnerability-formatter service.
+ * @summary Get latest Apple iOS/iPadOS and macOS security releases
+ */
+export const getApplePatches = async ( options?: RequestInit): Promise<ApplePatchesResult> => {
+
+  return customFetch<ApplePatchesResult>(getGetApplePatchesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApplePatchesQueryKey = () => {
+    return [
+    `/api/apple/patches`
+    ] as const;
+    }
+
+
+export const getGetApplePatchesQueryOptions = <TData = Awaited<ReturnType<typeof getApplePatches>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApplePatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApplePatchesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApplePatches>>> = ({ signal }) => getApplePatches({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApplePatches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetApplePatchesQueryResult = NonNullable<Awaited<ReturnType<typeof getApplePatches>>>
+export type GetApplePatchesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get latest Apple iOS/iPadOS and macOS security releases
+ */
+
+export function useGetApplePatches<TData = Awaited<ReturnType<typeof getApplePatches>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApplePatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetApplePatchesQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

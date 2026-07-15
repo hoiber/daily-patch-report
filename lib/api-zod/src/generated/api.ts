@@ -285,6 +285,28 @@ export const GetPatchTuesdayDigestResponse = zod.object({
 
 
 /**
+ * Returns the latest security releases (version, release date, CVE count, actively-exploited flag) for both iOS/iPadOS and macOS, proxied from the ios-security-vulnerability-formatter service.
+ * @summary Get latest Apple iOS/iPadOS and macOS security releases
+ */
+export const GetApplePatchesResponse = zod.object({
+  "platforms": zod.array(zod.object({
+  "platform": zod.enum(['ios', 'macos']),
+  "releasesFound": zod.number(),
+  "willCombine": zod.boolean(),
+  "releases": zod.array(zod.object({
+  "version": zod.string().nullish(),
+  "updateName": zod.string().nullish(),
+  "releaseDate": zod.string(),
+  "cveCount": zod.number(),
+  "securityInfoUrl": zod.string().nullish(),
+  "activelyExploited": zod.boolean()
+}))
+})),
+  "fetchedAt": zod.string()
+})
+
+
+/**
  * Returns the full list of CVEs published in the last 7 days, patched first
  * @summary Get all CVEs from the past 7 days
  */
