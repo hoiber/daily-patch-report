@@ -949,7 +949,7 @@ router.get("/cves/summary", async (_req: Request, res: Response) => {
     const cves = await fetchDailyCves(kevMap);
 
     const summary = {
-      reportDate: new Date().toISOString().split("T")[0],
+      reportDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane" }).format(new Date()),
       totalNew: cves.length,
       critical: cves.filter((c) => c.severity === "CRITICAL").length,
       high: cves.filter((c) => c.severity === "HIGH").length,
