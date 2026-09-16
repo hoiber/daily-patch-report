@@ -146,6 +146,36 @@ async function fetchPlatformCves(platform: Platform): Promise<AppleCve[]> {
   return parseCvesFromReportHtml(html);
 }
 
+// When willCombine is set, the upstream report merges multiple same-day releases into one
+// document — a CVE only carries a versionNote (e.g. "iOS 26.7") when it's restricted to an
+// older release in the group; unrestricted CVEs apply to the newest (primary) release. Splits
+// the flat, combined list back out per release so each release's stored/served CVEs match its
+// own cveCount instead of dumping everything onto the primary release.
+function splitCvesByRelease(releases: AppleRelease[], cves: AppleCve[]): Map<string, AppleCve[]> {
+  const buckets = new Map<string, AppleCve[]>();
+  for (const release of releases) {
+    if (release.version) buckets.set(release.version, []);
+  }
+
+  const primary = releases[0];
+  for (const cve of cves) {
+    const target = (cve.versionNote && releases.find((r) => releaseMatchesVersionNote(r, cve.versionNote as string))) || primary;
+    if (target?.version) buckets.get(target.version)?.push(cve);
+  }
+
+  return buckets;
+}
+
+function releaseMatchesVersionNote(release: AppleRelease, note: string): boolean {
+  const noteLower = note.toLowerCase();
+  const versionLower = release.version?.toLowerCase();
+  const updateNameLower = release.updateName?.toLowerCase();
+  return (
+    (!!versionLower && (noteLower.includes(versionLower) || versionLower.includes(noteLower))) ||
+    (!!updateNameLower && updateNameLower.includes(noteLower))
+  );
+}
+
 // ─── In-memory "current" cache, updated only by refreshApplePatches ───────────
 //
 // Unlike the other routes in this file's siblings (cves.ts, patch-tuesday.ts),
@@ -155,18 +185,18 @@ async function fetchPlatformCves(platform: Platform): Promise<AppleCve[]> {
 // production) is never at risk regardless of dashboard traffic.
 
 let currentSnapshot: ApplePatchesResult | null = null;
-const currentCves: Record<Platform, AppleCve[]> = { ios: [], macos: [] };
+const currentCves: Record<Platform, Map<string, AppleCve[]>> = { ios: new Map(), macos: new Map() };
 
-async function refreshPlatform(platform: Platform): Promise<{ digest: ApplePlatformDigest; cves: AppleCve[] }> {
+async function refreshPlatform(platform: Platform): Promise<{ digest: ApplePlatformDigest; cvesByVersion: Map<string, AppleCve[]> }> {
   const digest = await fetchPlatformDigest(platform);
   const cves = await fetchPlatformCves(platform);
+  const cvesByVersion = splitCvesByRelease(digest.releases, cves);
 
-  const primary = digest.releases[0];
-  if (primary) {
-    await saveAppleRelease(platform, primary, cves);
-  }
+  await Promise.all(
+    digest.releases.map((release) => saveAppleRelease(platform, release, cvesByVersion.get(release.version ?? "") ?? [])),
+  );
 
-  return { digest, cves };
+  return { digest, cvesByVersion };
 }
 
 /** Live fetch for both platforms, persisted to Postgres and swapped into the in-memory "current" cache. */
@@ -180,8 +210,8 @@ export async function refreshApplePatches(): Promise<ApplePatchesResult> {
       fetchedAt: new Date().toISOString(),
     };
     currentSnapshot = result;
-    currentCves.ios = ios.cves;
-    currentCves.macos = macos.cves;
+    currentCves.ios = ios.cvesByVersion;
+    currentCves.macos = macos.cvesByVersion;
 
     metrics.recordFetchSuccess("applePatches");
     logger.info("Apple patch data refreshed");
@@ -237,7 +267,7 @@ export async function warmApplePatches(): Promise<void> {
         },
       ],
     });
-    currentCves[platform] = entry.cves;
+    currentCves[platform] = new Map([[entry.release.version, entry.cves]]);
     newestLastSeenAt = Math.max(newestLastSeenAt, new Date(entry.release.lastSeenAt).getTime());
   }
 
@@ -321,10 +351,9 @@ router.get("/apple/cves/:platform/:version", async (req: Request, res: Response)
       return;
     }
 
-    // Postgres not configured (or this version predates it being set up) — the in-memory
-    // cache only ever holds the live latest, so it can only answer for that exact version.
-    const currentVersion = currentSnapshot?.platforms.find((d) => d.platform === p)?.releases[0]?.version;
-    res.json({ cves: version === currentVersion ? currentCves[p] : [] });
+    // Postgres not configured (or this version predates it being set up) — fall back to
+    // whatever the in-memory cache has for this exact version from the last refresh.
+    res.json({ cves: currentCves[p].get(version) ?? [] });
   } catch (err) {
     req.log.error({ err, platform, version }, "Failed to fetch Apple CVE detail");
     res.status(502).json({ error: "Failed to fetch Apple CVE detail" });
