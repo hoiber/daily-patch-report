@@ -36,14 +36,14 @@ packages:
 catalog:
   '@tailwindcss/vite': ^4.3.3
   '@tanstack/react-query': ^5.104.5
-  '@types/node': ^25.3.3
+  '@types/node': ^25.9.9
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   '@vitejs/plugin-react': ^6.1.2
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   drizzle-orm: ^0.45.4
-  framer-motion: ^12.23.24
+  framer-motion: ^12.43.0
   lucide-react: ^1.59.0
   # Must be this exact version because expo requires it
   react: 19.1.0
@@ -147,7 +147,7 @@ overrides:
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-x64": "-"
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
-  esbuild: "0.28.1"
+  esbuild: "0.28.2"
   # Security: fix transitive dependency vulnerabilities (bounded to same major)
   linkify-it: "^5.0.1"
   markdown-it: "^14.2.0"
