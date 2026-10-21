@@ -37,10 +37,13 @@ When the feature is ready, it gets folded into `staging` for the shared staging 
    pnpm run typecheck
    ```
 
-4. **Bump the version** — every `package.json` in the workspace shares one version string
-   (`YYMM.N` — year+month, incrementing release number within the month), plus
-   `artifacts/cve-dashboard/src/lib/release-notes.ts` (`APP_VERSION` and a new
-   `RELEASE_NOTES` entry summarizing what shipped). Bump all of them together in one commit.
+4. **Bump the version** — releases are numbered `YYMM.N` (year+month, incrementing release
+   number within the month). Every `package.json` in the workspace stores it as semver
+   `YYMM.N.0` (pnpm needs valid semver to resolve `workspace:*` deps — a two-part version
+   breaks `pnpm update` and any install that re-resolves a project), while
+   `artifacts/cve-dashboard/src/lib/release-notes.ts` uses the display form `YYMM.N`
+   (`APP_VERSION` and a new `RELEASE_NOTES` entry summarizing what shipped). Bump all of
+   them together in one commit.
 
 5. **Push to `staging`, and sync the feature branch too** so it doesn't silently diverge
    from what you just shipped:

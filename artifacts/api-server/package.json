@@ -1,6 +1,6 @@
 {
   "name": "@workspace/api-server",
-  "version": "2610.1",
+  "version": "2610.1.0",
   "private": true,
   "type": "module",
   "scripts": {
