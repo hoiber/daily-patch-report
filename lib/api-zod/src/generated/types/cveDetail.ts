@@ -20,6 +20,16 @@ export interface CveDetail {
   cvssScore?: number | null;
   /** @nullable */
   cvssVector?: string | null;
+  /**
+     * EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored
+     * @nullable
+     */
+  epssScore?: number | null;
+  /**
+     * EPSS percentile (0-1) relative to all scored CVEs
+     * @nullable
+     */
+  epssPercentile?: number | null;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts?: string[];

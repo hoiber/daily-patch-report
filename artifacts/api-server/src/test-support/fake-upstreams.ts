@@ -79,6 +79,12 @@ export const FIXTURE_KEV = {
   ],
 };
 
+// CVE-2026-0002 deliberately unscored (brand-new CVEs often are), to cover the null path.
+export const FIXTURE_EPSS = [
+  { cve: "CVE-2026-0001", epss: "0.91234", percentile: "0.99512", date: NOW.toISOString().slice(0, 10) },
+  { cve: "CVE-2026-0003", epss: "0.04120", percentile: "0.81020", date: NOW.toISOString().slice(0, 10) },
+];
+
 type Handler = (url: URL) => Response | undefined;
 
 const json = (body: unknown, status = 200) =>
@@ -100,6 +106,10 @@ export const healthyUpstream: Handler = (url) => {
     }
   }
   if (url.hostname === "www.cisa.gov") return json(FIXTURE_KEV);
+  if (url.hostname === "api.first.org") {
+    const ids = (url.searchParams.get("cve") ?? "").split(",");
+    return json({ data: FIXTURE_EPSS.filter((e) => ids.includes(e.cve)) });
+  }
   return undefined;
 };
 

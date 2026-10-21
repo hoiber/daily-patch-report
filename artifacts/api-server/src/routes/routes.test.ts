@@ -144,3 +144,21 @@ test("GET /api/apple/cves/:platform/:version rejects unknown platforms", async (
   const { status } = await get("/api/apple/cves/android/14");
   assert.equal(status, 400);
 });
+
+// ─── EPSS enrichment ─────────────────────────────────────────────────────────
+
+test("weekly CVEs carry EPSS scores from FIRST.org (null when unscored)", async () => {
+  const { body } = await get("/api/cves/weekly");
+  const byId = Object.fromEntries(
+    body.map((c: { cveId: string; epssScore: number | null; epssPercentile: number | null }) => [c.cveId, [c.epssScore, c.epssPercentile]]),
+  );
+  assert.deepEqual(byId["CVE-2026-0001"], [0.91234, 0.99512]);
+  assert.deepEqual(byId["CVE-2026-0003"], [0.0412, 0.8102]);
+  assert.deepEqual(byId["CVE-2026-0002"], [null, null]);
+});
+
+test("EPSS is fetched in one batched request, not per CVE", async () => {
+  const epssCalls = srv.upstreamCalls.filter((u) => u.includes("api.first.org"));
+  assert.equal(epssCalls.length, 1);
+  assert.match(decodeURIComponent(epssCalls[0]), /cve=CVE-2026-\d{4},CVE-2026-\d{4},CVE-2026-\d{4}/);
+});

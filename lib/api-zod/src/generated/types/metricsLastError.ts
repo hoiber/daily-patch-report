@@ -13,4 +13,5 @@ export interface MetricsLastError {
   kev?: MetricsErrorDetail | null;
   ptReleases?: MetricsErrorDetail | null;
   ptDigest?: MetricsErrorDetail | null;
+  epss?: MetricsErrorDetail | null;
 }

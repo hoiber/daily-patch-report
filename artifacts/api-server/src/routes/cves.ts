@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { parseRequest } from "../lib/validation";
+import { getEpssScores, applyEpss } from "../lib/epss";
 import { isSafeHttpUrl } from "../lib/url-safety";
 import * as metrics from "../lib/metrics";
 import {
@@ -34,6 +35,8 @@ export interface CveEntry {
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | null;
   cvssScore: number | null;
   cvssVector: string | null;
+  epssScore?: number | null;
+  epssPercentile?: number | null;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts: string[];
@@ -758,14 +761,19 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>, opts?: { force?: b
         }
       }
 
-      setCache(cacheKey, allEntries, 60 * 60 * 1000); // 1-hour TTL
+      // EPSS lookups are batched + cached for 24h (lib/epss.ts) and never throw — a FIRST.org
+      // outage just leaves scores null rather than failing the CVE refresh.
+      const epss = await getEpssScores(allEntries.map((e) => e.cveId));
+      const enriched: CveEntry[] = applyEpss(allEntries, epss);
+
+      setCache(cacheKey, enriched, 60 * 60 * 1000); // 1-hour TTL
       metrics.recordFetchSuccess("weekly");
 
       // Best-effort persistence — never let a slow/unavailable Postgres delay
       // the response that triggered this fetch.
-      void saveCveSnapshots(allEntries);
+      void saveCveSnapshots(enriched);
 
-      return allEntries;
+      return enriched;
     } catch (err) {
       metrics.recordFetchError("weekly", err);
       throw err;
@@ -1109,7 +1117,7 @@ router.get("/cves/:cveId", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "CVE not found" });
     }
 
-    const entry = extractFromNvdItem(item, kevMap);
+    const [entry] = applyEpss([extractFromNvdItem(item, kevMap)], await getEpssScores([cveId]));
     const detail = { ...entry, kevDetails: kevMap.get(cveId) ?? null };
     return res.json(detail);
   } catch (err) {

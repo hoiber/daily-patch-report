@@ -522,6 +522,12 @@ components:
           type: ["number", "null"]
         cvssVector:
           type: ["string", "null"]
+        epssScore:
+          type: ["number", "null"]
+          description: EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored
+        epssPercentile:
+          type: ["number", "null"]
+          description: EPSS percentile (0-1) relative to all scored CVEs
         hasKnownPatch:
           type: boolean
         isKnownExploited:
@@ -686,6 +692,12 @@ components:
           type: ["number", "null"]
         cvssVector:
           type: ["string", "null"]
+        epssScore:
+          type: ["number", "null"]
+          description: EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored
+        epssPercentile:
+          type: ["number", "null"]
+          description: EPSS percentile (0-1) relative to all scored CVEs
         hasKnownPatch:
           type: boolean
         isKnownExploited:
@@ -1127,6 +1139,8 @@ components:
           type: ["string", "null"]
         ptDigest:
           type: ["string", "null"]
+        epss:
+          type: ["string", "null"]
 
     MetricsLastError:
       type: object
@@ -1140,6 +1154,8 @@ components:
         ptReleases:
           $ref: "#/components/schemas/MetricsErrorDetail"
         ptDigest:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        epss:
           $ref: "#/components/schemas/MetricsErrorDetail"
 
     MetricsErrorDetail:

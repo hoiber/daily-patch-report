@@ -34,6 +34,8 @@ export const GetDailyCvesResponseItem = zod.object({
   "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
   "cvssScore": zod.number().nullish(),
   "cvssVector": zod.string().nullish(),
+  "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
+  "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -127,6 +129,8 @@ export const GetCvesSearchResponseItem = zod.object({
   "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
   "cvssScore": zod.number().nullish(),
   "cvssVector": zod.string().nullish(),
+  "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
+  "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -176,7 +180,8 @@ export const GetMetricsResponse = zod.object({
   "weekly": zod.string().nullish(),
   "kev": zod.string().nullish(),
   "ptReleases": zod.string().nullish(),
-  "ptDigest": zod.string().nullish()
+  "ptDigest": zod.string().nullish(),
+  "epss": zod.string().nullish()
 }),
   "lastError": zod.object({
   "daily": zod.object({
@@ -196,6 +201,10 @@ export const GetMetricsResponse = zod.object({
   "at": zod.string().optional()
 }).nullish(),
   "ptDigest": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "epss": zod.object({
   "message": zod.string().optional(),
   "at": zod.string().optional()
 }).nullish()
@@ -388,6 +397,8 @@ export const GetWeeklyCvesResponseItem = zod.object({
   "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
   "cvssScore": zod.number().nullish(),
   "cvssVector": zod.string().nullish(),
+  "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
+  "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -431,6 +442,8 @@ export const GetWeeklyDigestResponse = zod.object({
   "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
   "cvssScore": zod.number().nullish(),
   "cvssVector": zod.string().nullish(),
+  "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
+  "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -491,6 +504,8 @@ export const GetCveByIdResponse = zod.object({
   "severity": zod.union([zod.literal('CRITICAL'),zod.literal('HIGH'),zod.literal('MEDIUM'),zod.literal('LOW'),zod.literal(null)]).nullable(),
   "cvssScore": zod.number().nullish(),
   "cvssVector": zod.string().nullish(),
+  "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
+  "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
