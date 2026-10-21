@@ -10,6 +10,7 @@ import {
 import { logger } from "../lib/logger";
 import { parseRequest } from "../lib/validation";
 import { getEpssScores, applyEpss } from "../lib/epss";
+import { notifyNewZeroDays, seedAlertBaseline } from "../lib/alerts";
 import { isSafeHttpUrl } from "../lib/url-safety";
 import * as metrics from "../lib/metrics";
 import {
@@ -772,6 +773,7 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>, opts?: { force?: b
       // Best-effort persistence — never let a slow/unavailable Postgres delay
       // the response that triggered this fetch.
       void saveCveSnapshots(enriched);
+      void notifyNewZeroDays(enriched);
 
       return enriched;
     } catch (err) {
@@ -818,6 +820,9 @@ export async function warmWeeklyCache(): Promise<void> {
   if (snapshot && snapshot.length > 0) {
     setCache("weekly_cves", snapshot, 60 * 60 * 1000);
     logger.info({ count: snapshot.length }, "Warmed weekly CVE cache from Postgres snapshot");
+    // Zero-days already in the last persisted snapshot were present before this restart —
+    // don't re-alert them, but do alert anything that appeared while we were down.
+    seedAlertBaseline(snapshot);
   }
 
   await refreshCveCache();

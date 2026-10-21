@@ -440,6 +440,8 @@ export interface MetricsLastFetch {
   ptDigest?: string | null;
   /** @nullable */
   epss?: string | null;
+  /** @nullable */
+  alerts?: string | null;
 }
 
 /**
@@ -457,6 +459,7 @@ export interface MetricsLastError {
   ptReleases?: MetricsErrorDetail | null;
   ptDigest?: MetricsErrorDetail | null;
   epss?: MetricsErrorDetail | null;
+  alerts?: MetricsErrorDetail | null;
 }
 
 export interface MetricsDb {

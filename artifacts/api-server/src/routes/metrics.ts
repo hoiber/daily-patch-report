@@ -4,7 +4,7 @@ import { isDbConfigured } from "../lib/cve-store";
 
 const router: IRouter = Router();
 
-const FETCH_SOURCES = ["daily", "weekly", "kev", "ptReleases", "ptDigest", "epss"] as const;
+const FETCH_SOURCES = ["daily", "weekly", "kev", "ptReleases", "ptDigest", "epss", "alerts"] as const;
 
 router.get("/metrics", (_req: Request, res: Response) => {
   const cacheHits: Record<string, number> = {};

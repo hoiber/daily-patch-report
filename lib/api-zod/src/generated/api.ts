@@ -181,7 +181,8 @@ export const GetMetricsResponse = zod.object({
   "kev": zod.string().nullish(),
   "ptReleases": zod.string().nullish(),
   "ptDigest": zod.string().nullish(),
-  "epss": zod.string().nullish()
+  "epss": zod.string().nullish(),
+  "alerts": zod.string().nullish()
 }),
   "lastError": zod.object({
   "daily": zod.object({
@@ -205,6 +206,10 @@ export const GetMetricsResponse = zod.object({
   "at": zod.string().optional()
 }).nullish(),
   "epss": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "alerts": zod.object({
   "message": zod.string().optional(),
   "at": zod.string().optional()
 }).nullish()

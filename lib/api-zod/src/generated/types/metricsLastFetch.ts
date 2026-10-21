@@ -19,4 +19,6 @@ export interface MetricsLastFetch {
   ptDigest?: string | null;
   /** @nullable */
   epss?: string | null;
+  /** @nullable */
+  alerts?: string | null;
 }

@@ -1141,6 +1141,8 @@ components:
           type: ["string", "null"]
         epss:
           type: ["string", "null"]
+        alerts:
+          type: ["string", "null"]
 
     MetricsLastError:
       type: object
@@ -1156,6 +1158,8 @@ components:
         ptDigest:
           $ref: "#/components/schemas/MetricsErrorDetail"
         epss:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        alerts:
           $ref: "#/components/schemas/MetricsErrorDetail"
 
     MetricsErrorDetail:
