@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetPatchTuesdayDigestQueryParams } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { parseRequest } from "../lib/validation";
 import { isSafeHttpUrl } from "../lib/url-safety";
 import * as metrics from "../lib/metrics";
 
@@ -645,7 +646,9 @@ router.get("/patch-tuesday/releases", async (_req: Request, res: Response) => {
 
 router.get("/patch-tuesday", async (req: Request, res: Response) => {
   try {
-    const { releaseId: requestedId } = GetPatchTuesdayDigestQueryParams.parse(req.query);
+    const query = parseRequest(GetPatchTuesdayDigestQueryParams, req.query, req, res);
+    if (!query) return;
+    const { releaseId: requestedId } = query;
 
     let releaseId = requestedId;
     if (!releaseId) {

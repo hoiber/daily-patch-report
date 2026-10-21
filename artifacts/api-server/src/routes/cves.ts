@@ -8,6 +8,7 @@ import {
   GetCvesTrendQueryParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { parseRequest } from "../lib/validation";
 import { isSafeHttpUrl } from "../lib/url-safety";
 import * as metrics from "../lib/metrics";
 import {
@@ -818,7 +819,8 @@ export async function warmWeeklyCache(): Promise<void> {
 
 router.get("/cves/weekly", async (req: Request, res: Response) => {
   try {
-    const query = GetDailyCvesQueryParams.parse(req.query);
+    const query = parseRequest(GetDailyCvesQueryParams, req.query, req, res);
+    if (!query) return;
     const kevMap = await fetchKevCatalog();
     let cves = await fetchWeeklyCves(kevMap);
 
@@ -848,7 +850,8 @@ router.get("/cves/weekly", async (req: Request, res: Response) => {
 
 router.get("/cves/daily", async (req: Request, res: Response) => {
   try {
-    const query = GetDailyCvesQueryParams.parse(req.query);
+    const query = parseRequest(GetDailyCvesQueryParams, req.query, req, res);
+    if (!query) return;
     const kevMap = await fetchKevCatalog();
     let cves = await fetchDailyCves(kevMap);
 
@@ -868,7 +871,7 @@ router.get("/cves/daily", async (req: Request, res: Response) => {
 
 router.get("/cves/kev", async (req: Request, res: Response) => {
   try {
-    GetKevListQueryParams.parse(req.query);
+    if (!parseRequest(GetKevListQueryParams, req.query, req, res)) return;
     const kevMap = await fetchKevCatalog();
     const entries = Array.from(kevMap.values())
       .sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
@@ -881,7 +884,8 @@ router.get("/cves/kev", async (req: Request, res: Response) => {
 
 router.get("/cves/changes", async (req: Request, res: Response) => {
   try {
-    const query = GetCveChangesQueryParams.parse(req.query);
+    const query = parseRequest(GetCveChangesQueryParams, req.query, req, res);
+    if (!query) return;
     const rows = await loadRecentCveChanges({
       limit: query.limit,
       field: query.field,
@@ -904,7 +908,8 @@ router.get("/cves/changes", async (req: Request, res: Response) => {
 
 router.get("/cves/search", async (req: Request, res: Response) => {
   try {
-    const query = GetCvesSearchQueryParams.parse(req.query);
+    const query = parseRequest(GetCvesSearchQueryParams, req.query, req, res);
+    if (!query) return;
     const limit = query.limit ?? 25;
     const dbResults = await searchCveSnapshots(query.q, limit);
 
@@ -934,7 +939,8 @@ router.get("/cves/search", async (req: Request, res: Response) => {
 
 router.get("/cves/trend", async (req: Request, res: Response) => {
   try {
-    const query = GetCvesTrendQueryParams.parse(req.query);
+    const query = parseRequest(GetCvesTrendQueryParams, req.query, req, res);
+    if (!query) return;
     const buckets = await loadTrendBuckets(query.days ?? 30);
     res.json(buckets ?? []);
   } catch (err) {
@@ -1066,7 +1072,9 @@ router.get("/cves/digest", async (req: Request, res: Response) => {
 
 router.get("/cves/:cveId", async (req: Request, res: Response) => {
   try {
-    const { cveId } = GetCveByIdParams.parse(req.params);
+    const params = parseRequest(GetCveByIdParams, req.params, req, res);
+    if (!params) return;
+    const { cveId } = params;
     const kevMap = await fetchKevCatalog();
 
     // Try daily cache first

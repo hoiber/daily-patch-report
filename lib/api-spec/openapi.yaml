@@ -58,6 +58,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CveEntry"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /cves/kev:
     get:
@@ -82,6 +88,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/KevEntry"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /cves/changes:
     get:
@@ -127,6 +139,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CveChange"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /cves/search:
     get:
@@ -159,6 +177,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CveEntry"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /cves/trend:
     get:
@@ -185,6 +209,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/DailyTrend"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /metrics:
     get:
@@ -257,6 +287,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PatchTuesdayDigest"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /apple/patches:
     get:
@@ -297,6 +333,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppleCvesResult"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /apple/history/{platform}:
     get:
@@ -318,6 +360,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppleHistoryResult"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /apple/refresh:
     post:
@@ -362,6 +410,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CveEntry"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /cves/digest:
     get:
@@ -411,6 +465,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CveDetail"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: CVE not found
           content:

@@ -192,7 +192,7 @@ export const getGetDailyCvesQueryKey = (params?: GetDailyCvesParams,) => {
     }
 
 
-export const getGetDailyCvesQueryOptions = <TData = Awaited<ReturnType<typeof getDailyCves>>, TError = ErrorType<unknown>>(params?: GetDailyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetDailyCvesQueryOptions = <TData = Awaited<ReturnType<typeof getDailyCves>>, TError = ErrorType<ErrorResponse>>(params?: GetDailyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -211,14 +211,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetDailyCvesQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyCves>>>
-export type GetDailyCvesQueryError = ErrorType<unknown>
+export type GetDailyCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get today's new CVEs
  */
 
-export function useGetDailyCves<TData = Awaited<ReturnType<typeof getDailyCves>>, TError = ErrorType<unknown>>(
+export function useGetDailyCves<TData = Awaited<ReturnType<typeof getDailyCves>>, TError = ErrorType<ErrorResponse>>(
  params?: GetDailyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -277,7 +277,7 @@ export const getGetKevListQueryKey = (params?: GetKevListParams,) => {
     }
 
 
-export const getGetKevListQueryOptions = <TData = Awaited<ReturnType<typeof getKevList>>, TError = ErrorType<unknown>>(params?: GetKevListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKevList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetKevListQueryOptions = <TData = Awaited<ReturnType<typeof getKevList>>, TError = ErrorType<ErrorResponse>>(params?: GetKevListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKevList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -296,14 +296,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetKevListQueryResult = NonNullable<Awaited<ReturnType<typeof getKevList>>>
-export type GetKevListQueryError = ErrorType<unknown>
+export type GetKevListQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get CISA Known Exploited Vulnerabilities
  */
 
-export function useGetKevList<TData = Awaited<ReturnType<typeof getKevList>>, TError = ErrorType<unknown>>(
+export function useGetKevList<TData = Awaited<ReturnType<typeof getKevList>>, TError = ErrorType<ErrorResponse>>(
  params?: GetKevListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKevList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -362,7 +362,7 @@ export const getGetCveChangesQueryKey = (params?: GetCveChangesParams,) => {
     }
 
 
-export const getGetCveChangesQueryOptions = <TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<unknown>>(params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCveChangesQueryOptions = <TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<ErrorResponse>>(params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -381,14 +381,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCveChangesQueryResult = NonNullable<Awaited<ReturnType<typeof getCveChanges>>>
-export type GetCveChangesQueryError = ErrorType<unknown>
+export type GetCveChangesQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get recent CVE state changes
  */
 
-export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<unknown>>(
+export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<ErrorResponse>>(
  params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -447,7 +447,7 @@ export const getGetCvesSearchQueryKey = (params?: GetCvesSearchParams,) => {
     }
 
 
-export const getGetCvesSearchQueryOptions = <TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<unknown>>(params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCvesSearchQueryOptions = <TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -466,14 +466,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCvesSearchQueryResult = NonNullable<Awaited<ReturnType<typeof getCvesSearch>>>
-export type GetCvesSearchQueryError = ErrorType<unknown>
+export type GetCvesSearchQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Search CVEs by ID, description, or vendor
  */
 
-export function useGetCvesSearch<TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<unknown>>(
+export function useGetCvesSearch<TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(
  params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -532,7 +532,7 @@ export const getGetCvesTrendQueryKey = (params?: GetCvesTrendParams,) => {
     }
 
 
-export const getGetCvesTrendQueryOptions = <TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<unknown>>(params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCvesTrendQueryOptions = <TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<ErrorResponse>>(params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -551,14 +551,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCvesTrendQueryResult = NonNullable<Awaited<ReturnType<typeof getCvesTrend>>>
-export type GetCvesTrendQueryError = ErrorType<unknown>
+export type GetCvesTrendQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get extended historical CVE volume trend
  */
 
-export function useGetCvesTrend<TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<unknown>>(
+export function useGetCvesTrend<TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<ErrorResponse>>(
  params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -858,7 +858,7 @@ export const getGetPatchTuesdayDigestQueryKey = (params?: GetPatchTuesdayDigestP
     }
 
 
-export const getGetPatchTuesdayDigestQueryOptions = <TData = Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError = ErrorType<unknown>>(params?: GetPatchTuesdayDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetPatchTuesdayDigestQueryOptions = <TData = Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError = ErrorType<ErrorResponse>>(params?: GetPatchTuesdayDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -877,14 +877,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetPatchTuesdayDigestQueryResult = NonNullable<Awaited<ReturnType<typeof getPatchTuesdayDigest>>>
-export type GetPatchTuesdayDigestQueryError = ErrorType<unknown>
+export type GetPatchTuesdayDigestQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get Patch Tuesday CVEs for a release
  */
 
-export function useGetPatchTuesdayDigest<TData = Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError = ErrorType<unknown>>(
+export function useGetPatchTuesdayDigest<TData = Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError = ErrorType<ErrorResponse>>(
  params?: GetPatchTuesdayDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1017,7 +1017,7 @@ export const getGetAppleCvesQueryKey = (platform: 'ios' | 'macos',
     }
 
 
-export const getGetAppleCvesQueryOptions = <TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<unknown>>(platform: 'ios' | 'macos',
+export const getGetAppleCvesQueryOptions = <TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<ErrorResponse>>(platform: 'ios' | 'macos',
     version: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
@@ -1037,14 +1037,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetAppleCvesQueryResult = NonNullable<Awaited<ReturnType<typeof getAppleCves>>>
-export type GetAppleCvesQueryError = ErrorType<unknown>
+export type GetAppleCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get per-CVE detail for one specific Apple security release
  */
 
-export function useGetAppleCves<TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<unknown>>(
+export function useGetAppleCves<TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<ErrorResponse>>(
  platform: 'ios' | 'macos',
     version: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1097,7 +1097,7 @@ export const getGetAppleHistoryQueryKey = (platform: 'ios' | 'macos',) => {
     }
 
 
-export const getGetAppleHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<unknown>>(platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetAppleHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<ErrorResponse>>(platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1116,14 +1116,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetAppleHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAppleHistory>>>
-export type GetAppleHistoryQueryError = ErrorType<unknown>
+export type GetAppleHistoryQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get historical Apple security releases
  */
 
-export function useGetAppleHistory<TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<unknown>>(
+export function useGetAppleHistory<TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<ErrorResponse>>(
  platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1257,7 +1257,7 @@ export const getGetWeeklyCvesQueryKey = (params?: GetWeeklyCvesParams,) => {
     }
 
 
-export const getGetWeeklyCvesQueryOptions = <TData = Awaited<ReturnType<typeof getWeeklyCves>>, TError = ErrorType<unknown>>(params?: GetWeeklyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetWeeklyCvesQueryOptions = <TData = Awaited<ReturnType<typeof getWeeklyCves>>, TError = ErrorType<ErrorResponse>>(params?: GetWeeklyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1276,14 +1276,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetWeeklyCvesQueryResult = NonNullable<Awaited<ReturnType<typeof getWeeklyCves>>>
-export type GetWeeklyCvesQueryError = ErrorType<unknown>
+export type GetWeeklyCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
  * @summary Get all CVEs from the past 7 days
  */
 
-export function useGetWeeklyCves<TData = Awaited<ReturnType<typeof getWeeklyCves>>, TError = ErrorType<unknown>>(
+export function useGetWeeklyCves<TData = Awaited<ReturnType<typeof getWeeklyCves>>, TError = ErrorType<ErrorResponse>>(
  params?: GetWeeklyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
