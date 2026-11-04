@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -32,6 +33,8 @@ app.use(
   }),
 );
 app.use(cors());
+// /cves/weekly is several MB of JSON, and nothing else in the path compresses it.
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(rateLimit);

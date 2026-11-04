@@ -21,4 +21,8 @@ export interface MetricsLastFetch {
   epss?: string | null;
   /** @nullable */
   alerts?: string | null;
+  /** @nullable */
+  cveOrg?: string | null;
+  /** @nullable */
+  redhat?: string | null;
 }

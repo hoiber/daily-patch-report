@@ -8,6 +8,9 @@
 import type { CveEntryDeviceType } from './cveEntryDeviceType';
 import type { CveEntryPlatformsItem } from './cveEntryPlatformsItem';
 import type { CveEntrySeverity } from './cveEntrySeverity';
+import type { CveEntrySsvcAutomatable } from './cveEntrySsvcAutomatable';
+import type { CveEntrySsvcExploitation } from './cveEntrySsvcExploitation';
+import type { CveEntrySsvcTechnicalImpact } from './cveEntrySsvcTechnicalImpact';
 
 export interface CveEntry {
   cveId: string;
@@ -30,6 +33,21 @@ export interface CveEntry {
      * @nullable
      */
   epssPercentile?: number | null;
+  /**
+     * CISA Vulnrichment SSVC exploitation status; null if not assessed
+     * @nullable
+     */
+  ssvcExploitation?: CveEntrySsvcExploitation;
+  /**
+     * CISA Vulnrichment SSVC - whether exploitation can be automated
+     * @nullable
+     */
+  ssvcAutomatable?: CveEntrySsvcAutomatable;
+  /**
+     * CISA Vulnrichment SSVC technical impact
+     * @nullable
+     */
+  ssvcTechnicalImpact?: CveEntrySsvcTechnicalImpact;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts?: string[];

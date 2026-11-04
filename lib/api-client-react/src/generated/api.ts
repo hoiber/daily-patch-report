@@ -406,7 +406,7 @@ export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges
 
 
 
-export const getGetCvesSearchUrl = (params: GetCvesSearchParams,) => {
+export const getGetCvesSearchUrl = (params?: GetCvesSearchParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -422,10 +422,10 @@ export const getGetCvesSearchUrl = (params: GetCvesSearchParams,) => {
 }
 
 /**
- * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
- * @summary Search CVEs by ID, description, or vendor
+ * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE), combined with optional filters. At least one of q, cwe, severity, exploited, or minEpss is required. Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days. minEpss always uses the in-memory cache, because EPSS scores are not persisted.
+ * @summary Search CVEs by text and filters
  */
-export const getCvesSearch = async (params: GetCvesSearchParams, options?: Parameters<typeof customFetch>[1]): Promise<CveEntry[]> => {
+export const getCvesSearch = async (params?: GetCvesSearchParams, options?: Parameters<typeof customFetch>[1]): Promise<CveEntry[]> => {
 
   return customFetch<CveEntry[]>(getGetCvesSearchUrl(params),
   {
@@ -447,7 +447,7 @@ export const getGetCvesSearchQueryKey = (params?: GetCvesSearchParams,) => {
     }
 
 
-export const getGetCvesSearchQueryOptions = <TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCvesSearchQueryOptions = <TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(params?: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -470,11 +470,11 @@ export type GetCvesSearchQueryError = ErrorType<ErrorResponse>
 
 
 /**
- * @summary Search CVEs by ID, description, or vendor
+ * @summary Search CVEs by text and filters
  */
 
 export function useGetCvesSearch<TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(
- params: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 

@@ -150,16 +150,44 @@ paths:
     get:
       operationId: getCvesSearch
       tags: [cves]
-      summary: Search CVEs by ID, description, or vendor
-      description: Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
+      summary: Search CVEs by text and filters
+      description: Full-text-ish search across persisted CVE snapshots (Postgres ILIKE), combined with optional filters. At least one of q, cwe, severity, exploited, or minEpss is required. Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days. minEpss always uses the in-memory cache, because EPSS scores are not persisted.
       parameters:
         - name: q
           in: query
-          required: true
+          required: false
           schema:
             type: string
             minLength: 2
           description: Search text, matched against CVE ID, description, and vendor
+        - name: cwe
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^CWE-[0-9]{1,6}$"
+          description: Only CVEs with this CWE weakness, e.g. CWE-79
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          description: Only CVEs with this severity
+        - name: exploited
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Only CVEs in the CISA KEV catalog
+        - name: minEpss
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+          description: Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
         - name: limit
           in: query
           required: false
@@ -528,6 +556,18 @@ components:
         epssPercentile:
           type: ["number", "null"]
           description: EPSS percentile (0-1) relative to all scored CVEs
+        ssvcExploitation:
+          type: ["string", "null"]
+          enum: [none, poc, active, null]
+          description: CISA Vulnrichment SSVC exploitation status; null if not assessed
+        ssvcAutomatable:
+          type: ["string", "null"]
+          enum: ["yes", "no", null]
+          description: CISA Vulnrichment SSVC - whether exploitation can be automated
+        ssvcTechnicalImpact:
+          type: ["string", "null"]
+          enum: [partial, total, null]
+          description: CISA Vulnrichment SSVC technical impact
         hasKnownPatch:
           type: boolean
         isKnownExploited:
@@ -698,6 +738,18 @@ components:
         epssPercentile:
           type: ["number", "null"]
           description: EPSS percentile (0-1) relative to all scored CVEs
+        ssvcExploitation:
+          type: ["string", "null"]
+          enum: [none, poc, active, null]
+          description: CISA Vulnrichment SSVC exploitation status; null if not assessed
+        ssvcAutomatable:
+          type: ["string", "null"]
+          enum: ["yes", "no", null]
+          description: CISA Vulnrichment SSVC - whether exploitation can be automated
+        ssvcTechnicalImpact:
+          type: ["string", "null"]
+          enum: [partial, total, null]
+          description: CISA Vulnrichment SSVC technical impact
         hasKnownPatch:
           type: boolean
         isKnownExploited:
@@ -1143,6 +1195,10 @@ components:
           type: ["string", "null"]
         alerts:
           type: ["string", "null"]
+        cveOrg:
+          type: ["string", "null"]
+        redhat:
+          type: ["string", "null"]
 
     MetricsLastError:
       type: object
@@ -1160,6 +1216,10 @@ components:
         epss:
           $ref: "#/components/schemas/MetricsErrorDetail"
         alerts:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        cveOrg:
+          $ref: "#/components/schemas/MetricsErrorDetail"
+        redhat:
           $ref: "#/components/schemas/MetricsErrorDetail"
 
     MetricsErrorDetail:

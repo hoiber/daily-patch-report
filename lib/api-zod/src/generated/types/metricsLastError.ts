@@ -15,4 +15,6 @@ export interface MetricsLastError {
   ptDigest?: MetricsErrorDetail | null;
   epss?: MetricsErrorDetail | null;
   alerts?: MetricsErrorDetail | null;
+  cveOrg?: MetricsErrorDetail | null;
+  redhat?: MetricsErrorDetail | null;
 }

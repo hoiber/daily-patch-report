@@ -26,6 +26,43 @@ export const CveEntrySeverity = {
   LOW: 'LOW',
 } as const;
 
+/**
+ * CISA Vulnrichment SSVC exploitation status; null if not assessed
+ * @nullable
+ */
+export type CveEntrySsvcExploitation = typeof CveEntrySsvcExploitation[keyof typeof CveEntrySsvcExploitation] | null;
+
+
+export const CveEntrySsvcExploitation = {
+  none: 'none',
+  poc: 'poc',
+  active: 'active',
+} as const;
+
+/**
+ * CISA Vulnrichment SSVC - whether exploitation can be automated
+ * @nullable
+ */
+export type CveEntrySsvcAutomatable = typeof CveEntrySsvcAutomatable[keyof typeof CveEntrySsvcAutomatable] | null;
+
+
+export const CveEntrySsvcAutomatable = {
+  yes: 'yes',
+  no: 'no',
+} as const;
+
+/**
+ * CISA Vulnrichment SSVC technical impact
+ * @nullable
+ */
+export type CveEntrySsvcTechnicalImpact = typeof CveEntrySsvcTechnicalImpact[keyof typeof CveEntrySsvcTechnicalImpact] | null;
+
+
+export const CveEntrySsvcTechnicalImpact = {
+  partial: 'partial',
+  total: 'total',
+} as const;
+
 export type CveEntryPlatformsItem = typeof CveEntryPlatformsItem[keyof typeof CveEntryPlatformsItem];
 
 
@@ -77,6 +114,21 @@ export interface CveEntry {
      * @nullable
      */
   epssPercentile?: number | null;
+  /**
+     * CISA Vulnrichment SSVC exploitation status; null if not assessed
+     * @nullable
+     */
+  ssvcExploitation?: CveEntrySsvcExploitation;
+  /**
+     * CISA Vulnrichment SSVC - whether exploitation can be automated
+     * @nullable
+     */
+  ssvcAutomatable?: CveEntrySsvcAutomatable;
+  /**
+     * CISA Vulnrichment SSVC technical impact
+     * @nullable
+     */
+  ssvcTechnicalImpact?: CveEntrySsvcTechnicalImpact;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts?: string[];
@@ -178,6 +230,43 @@ export const CveDetailSeverity = {
   LOW: 'LOW',
 } as const;
 
+/**
+ * CISA Vulnrichment SSVC exploitation status; null if not assessed
+ * @nullable
+ */
+export type CveDetailSsvcExploitation = typeof CveDetailSsvcExploitation[keyof typeof CveDetailSsvcExploitation] | null;
+
+
+export const CveDetailSsvcExploitation = {
+  none: 'none',
+  poc: 'poc',
+  active: 'active',
+} as const;
+
+/**
+ * CISA Vulnrichment SSVC - whether exploitation can be automated
+ * @nullable
+ */
+export type CveDetailSsvcAutomatable = typeof CveDetailSsvcAutomatable[keyof typeof CveDetailSsvcAutomatable] | null;
+
+
+export const CveDetailSsvcAutomatable = {
+  yes: 'yes',
+  no: 'no',
+} as const;
+
+/**
+ * CISA Vulnrichment SSVC technical impact
+ * @nullable
+ */
+export type CveDetailSsvcTechnicalImpact = typeof CveDetailSsvcTechnicalImpact[keyof typeof CveDetailSsvcTechnicalImpact] | null;
+
+
+export const CveDetailSsvcTechnicalImpact = {
+  partial: 'partial',
+  total: 'total',
+} as const;
+
 export type CveDetailPlatformsItem = typeof CveDetailPlatformsItem[keyof typeof CveDetailPlatformsItem];
 
 
@@ -216,6 +305,21 @@ export interface CveDetail {
      * @nullable
      */
   epssPercentile?: number | null;
+  /**
+     * CISA Vulnrichment SSVC exploitation status; null if not assessed
+     * @nullable
+     */
+  ssvcExploitation?: CveDetailSsvcExploitation;
+  /**
+     * CISA Vulnrichment SSVC - whether exploitation can be automated
+     * @nullable
+     */
+  ssvcAutomatable?: CveDetailSsvcAutomatable;
+  /**
+     * CISA Vulnrichment SSVC technical impact
+     * @nullable
+     */
+  ssvcTechnicalImpact?: CveDetailSsvcTechnicalImpact;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts?: string[];
@@ -442,6 +546,10 @@ export interface MetricsLastFetch {
   epss?: string | null;
   /** @nullable */
   alerts?: string | null;
+  /** @nullable */
+  cveOrg?: string | null;
+  /** @nullable */
+  redhat?: string | null;
 }
 
 /**
@@ -460,6 +568,8 @@ export interface MetricsLastError {
   ptDigest?: MetricsErrorDetail | null;
   epss?: MetricsErrorDetail | null;
   alerts?: MetricsErrorDetail | null;
+  cveOrg?: MetricsErrorDetail | null;
+  redhat?: MetricsErrorDetail | null;
 }
 
 export interface MetricsDb {
@@ -543,13 +653,42 @@ export type GetCvesSearchParams = {
  * Search text, matched against CVE ID, description, and vendor
  * @minLength 2
  */
-q: string;
+q?: string;
+/**
+ * Only CVEs with this CWE weakness, e.g. CWE-79
+ * @pattern ^CWE-[0-9]{1,6}$
+ */
+cwe?: string;
+/**
+ * Only CVEs with this severity
+ */
+severity?: GetCvesSearchSeverity;
+/**
+ * Only CVEs in the CISA KEV catalog
+ */
+exploited?: boolean;
+/**
+ * Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
+ * @minimum 0
+ * @maximum 1
+ */
+minEpss?: number;
 /**
  * Maximum number of entries to return
  * @maximum 100
  */
 limit?: number;
 };
+
+export type GetCvesSearchSeverity = typeof GetCvesSearchSeverity[keyof typeof GetCvesSearchSeverity];
+
+
+export const GetCvesSearchSeverity = {
+  CRITICAL: 'CRITICAL',
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+} as const;
 
 export type GetCvesTrendParams = {
 /**

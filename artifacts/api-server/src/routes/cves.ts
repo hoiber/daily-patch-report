@@ -10,7 +10,10 @@ import {
 import { logger } from "../lib/logger";
 import { parseRequest } from "../lib/validation";
 import { getEpssScores, applyEpss } from "../lib/epss";
-import { notifyNewZeroDays, seedAlertBaseline } from "../lib/alerts";
+import { getCveOrgRecords, applyCveOrg } from "../lib/cve-org";
+import { getRedhatAdvisories, applyRedhatAdvisories } from "../lib/redhat";
+import { parseSeverity } from "../lib/severity";
+import { notifyAlerts, seedAlertBaseline } from "../lib/alerts";
 import { isSafeHttpUrl } from "../lib/url-safety";
 import * as metrics from "../lib/metrics";
 import {
@@ -38,6 +41,9 @@ export interface CveEntry {
   cvssVector: string | null;
   epssScore?: number | null;
   epssPercentile?: number | null;
+  ssvcExploitation?: "none" | "poc" | "active" | null;
+  ssvcAutomatable?: "yes" | "no" | null;
+  ssvcTechnicalImpact?: "partial" | "total" | null;
   hasKnownPatch: boolean;
   isKnownExploited: boolean;
   affectedProducts: string[];
@@ -492,17 +498,8 @@ function detectDeviceTypeFromVendor(vendorProject: string, product: string, desc
   return "Other";
 }
 
-// ─── Severity ─────────────────────────────────────────────────────────────────
-
-type NvdSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | null;
-
-function parseSeverity(score: number | null): NvdSeverity {
-  if (score === null) return null;
-  if (score >= 9.0) return "CRITICAL";
-  if (score >= 7.0) return "HIGH";
-  if (score >= 4.0) return "MEDIUM";
-  return "LOW";
-}
+// CNAs often fill the vendor field with a placeholder when they have nothing better.
+const PLACEHOLDER_VENDOR = /^(n\/?a|unknown|unspecified)$/i;
 
 function extractFromNvdItem(
   item: NvdCveItem,
@@ -515,13 +512,14 @@ function extractFromNvdItem(
     cve.descriptions?.find((d: { lang: string; value: string }) => d.lang === "en")
       ?.value ?? "No description available.";
 
-  // CVSS v3.1 preferred, fall back to v3.0, then v2
+  // CVSS v3.1 preferred, then v3.0, v4.0 (many CNAs now publish only v4), then v2
   let cvssScore: number | null = null;
   let cvssVector: string | null = null;
 
   const metrics = cve.metrics ?? {};
   const v31 = metrics.cvssMetricV31?.[0];
   const v30 = metrics.cvssMetricV30?.[0];
+  const v40 = metrics.cvssMetricV40?.[0];
   const v2 = metrics.cvssMetricV2?.[0];
 
   if (v31) {
@@ -530,6 +528,9 @@ function extractFromNvdItem(
   } else if (v30) {
     cvssScore = v30.cvssData?.baseScore ?? null;
     cvssVector = v30.cvssData?.vectorString ?? null;
+  } else if (v40) {
+    cvssScore = v40.cvssData?.baseScore ?? null;
+    cvssVector = v40.cvssData?.vectorString ?? null;
   } else if (v2) {
     cvssScore = v2.cvssData?.baseScore ?? null;
     cvssVector = v2.cvssData?.vectorString ?? null;
@@ -587,7 +588,7 @@ function extractFromNvdItem(
   if (affectedProducts.length === 0) {
     for (const item of cve.affected ?? []) {
       for (const data of item.affectedData ?? []) {
-        if (!data.vendor || !data.product) continue;
+        if (!data.vendor || !data.product || PLACEHOLDER_VENDOR.test(data.vendor)) continue;
         const label = `${data.vendor}/${data.product}`;
         if (!seenProducts.has(label)) {
           seenProducts.add(label);
@@ -642,10 +643,12 @@ interface NvdCveItem {
     id: string;
     published: string;
     lastModified: string;
+    vulnStatus?: string;
     descriptions?: Array<{ lang: string; value: string }>;
     metrics?: {
       cvssMetricV31?: Array<{ cvssData?: { baseScore: number; vectorString: string } }>;
       cvssMetricV30?: Array<{ cvssData?: { baseScore: number; vectorString: string } }>;
+      cvssMetricV40?: Array<{ cvssData?: { baseScore: number; vectorString: string } }>;
       cvssMetricV2?: Array<{ cvssData?: { baseScore: number; vectorString: string } }>;
     };
     references?: Array<{ url: string; tags?: string[] }>;
@@ -686,6 +689,109 @@ async function fetchDailyCves(kevMap: Map<string, KevEntry>): Promise<CveEntry[]
 
 // ─── Weekly fetch (7 days) ───────────────────────────────────────────────────
 
+const NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0";
+const NVD_PAGE_SIZE = 2000; // NVD's maximum; a typical week is ~3,500 CVEs
+const NVD_MAX_PAGES = 5;
+const NVD_PUBLIC_GAP_MS = 6000; // the public (no-key) limit
+const OLDER_UPDATES_WINDOW_MS = 24 * 60 * 60 * 1000;
+const STALE_RETRY_TTL = 5 * 60 * 1000;
+
+let lastGoodWeekly: CveEntry[] | null = null;
+let nextNvdSlot = 0;
+
+/** Holds the caller until its turn under the public rate limit. No-op with an API key. */
+async function paceNvd(): Promise<void> {
+  if (process.env.NVD_API) return;
+  const now = Date.now();
+  const slot = Math.max(now, nextNvdSlot);
+  nextNvdSlot = slot + NVD_PUBLIC_GAP_MS;
+  if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
+}
+
+/** Runs one NVD query through every page. Throws if any page fails, so callers never get a partial list. */
+async function fetchNvdEntries(
+  params: Record<string, string>,
+  kevMap: Map<string, KevEntry>,
+): Promise<CveEntry[]> {
+  const entries: CveEntry[] = [];
+  let totalResults = Infinity;
+
+  for (let page = 0; page * NVD_PAGE_SIZE < totalResults; page++) {
+    if (page === NVD_MAX_PAGES) {
+      logger.warn({ totalResults, fetched: entries.length }, "NVD query exceeded the page limit; results truncated");
+      break;
+    }
+    const url = new URL(NVD_URL);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+    url.searchParams.set("resultsPerPage", String(NVD_PAGE_SIZE));
+    url.searchParams.set("startIndex", String(page * NVD_PAGE_SIZE));
+
+    await paceNvd();
+    // NVD treats these as bare flags, and URLSearchParams would add a trailing "=".
+    const res = await fetch(url.toString().replace("hasKev=&", "hasKev&"), {
+      headers: NVD_HEADERS,
+      signal: AbortSignal.timeout(90000), // a full page takes NVD ~30s
+    });
+    if (!res.ok) throw new Error(`NVD fetch failed: ${res.status}`);
+
+    const json = (await res.json()) as { totalResults?: number; vulnerabilities?: NvdCveItem[] };
+    totalResults = json.totalResults ?? 0;
+    for (const item of json.vulnerabilities ?? []) {
+      if (item.cve.vulnStatus !== "Rejected") entries.push(extractFromNvdItem(item, kevMap));
+    }
+  }
+  return entries;
+}
+
+function dedupeByCveId(entries: CveEntry[]): CveEntry[] {
+  return [...new Map(entries.map((e) => [e.cveId, e])).values()];
+}
+
+/**
+ * CVEs published before the 7-day window that changed recently: late NVD scores, and older CVEs
+ * newly added to KEV. They aren't part of the weekly list, but they keep Postgres current and feed
+ * alerts. Best-effort, because the weekly list is still complete without them.
+ */
+async function fetchOlderUpdates(kevMap: Map<string, KevEntry>, now: Date, weekAgo: Date): Promise<CveEntry[]> {
+  const nvdDate = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, ".000");
+  const queries: Array<Record<string, string>> = [
+    { hasKev: "", kevStartDate: nvdDate(weekAgo), kevEndDate: nvdDate(now) },
+    {
+      lastModStartDate: nvdDate(new Date(now.getTime() - OLDER_UPDATES_WINDOW_MS)),
+      lastModEndDate: nvdDate(now),
+    },
+  ];
+
+  const found: CveEntry[] = [];
+  for (const params of queries) {
+    try {
+      found.push(...(await fetchNvdEntries(params, kevMap)));
+    } catch (err) {
+      logger.warn({ err }, "NVD older-updates fetch failed; continuing without them");
+    }
+  }
+  return dedupeByCveId(found).filter((e) => new Date(e.publishedDate) < weekAgo);
+}
+
+const ENRICHMENT_RANK: Record<string, number> = { CRITICAL: 1, HIGH: 2, MEDIUM: 4, LOW: 5 };
+
+/** Lookup order for capped enrichment: what matters most gets its SSVC data first. */
+function enrichmentRank(e: CveEntry): number {
+  if (e.isKnownExploited) return 0;
+  return ENRICHMENT_RANK[e.severity ?? ""] ?? 3;
+}
+
+/** Adds CVE.org, Red Hat and EPSS data. Each source is best-effort and none of them throw. */
+async function enrichEntries(entries: CveEntry[]): Promise<CveEntry[]> {
+  const prioritised = [...entries].sort((a, b) => enrichmentRank(a) - enrichmentRank(b));
+  const withCveOrg = applyCveOrg(entries, await getCveOrgRecords(prioritised.map((e) => e.cveId)));
+
+  const unpatched = withCveOrg.filter((e) => !e.hasKnownPatch).map((e) => e.cveId);
+  const withFixes = applyRedhatAdvisories(withCveOrg, await getRedhatAdvisories(unpatched));
+
+  return applyEpss(withFixes, await getEpssScores(withFixes.map((e) => e.cveId)));
+}
+
 // Deduplicate concurrent fetches: if a fetch is already in-flight,
 // all callers await the same promise instead of starting duplicate requests.
 let weeklyFetchInFlight: Promise<CveEntry[]> | null = null;
@@ -711,73 +817,32 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>, opts?: { force?: b
 
       logger.info({ pubStartDate, pubEndDate }, "Fetching NVD weekly CVEs");
 
-      // NVD's public (no-key) API is slow for large date ranges.
-      // Strategy: make 3 small, fast, parallel requests filtered by severity.
-      // Each severity bucket typically has <200 results and responds in 5–20 s.
-      async function fetchSeverityPage(severity: string): Promise<CveEntry[]> {
-        const url = new URL("https://services.nvd.nist.gov/rest/json/cves/2.0");
-        url.searchParams.set("pubStartDate", pubStartDate);
-        url.searchParams.set("pubEndDate", pubEndDate);
-        url.searchParams.set("cvssV3Severity", severity);
-        url.searchParams.set("resultsPerPage", "500");
+      const weekly = dedupeByCveId(await fetchNvdEntries({ pubStartDate, pubEndDate }, kevMap));
+      const weeklyIds = new Set(weekly.map((e) => e.cveId));
+      const older = (await fetchOlderUpdates(kevMap, now, weekAgo)).filter((e) => !weeklyIds.has(e.cveId));
 
-        const res = await fetch(url.toString(), {
-          headers: NVD_HEADERS,
-          signal: AbortSignal.timeout(60000),
-        });
-
-        if (!res.ok) {
-          logger.warn({ severity, status: res.status }, "NVD severity fetch failed");
-          return [];
-        }
-
-        const json = (await res.json()) as { vulnerabilities?: NvdCveItem[] };
-        return (json.vulnerabilities ?? []).map((item) => extractFromNvdItem(item, kevMap));
-      }
-
-      // With an NVD_API key (50 req/30s) all 3 buckets can run concurrently.
-      // Without one, stagger by 6s each to respect the public 1 req/6s limit.
-      const hasApiKey = Boolean(process.env.NVD_API);
-      const [critical, high, medium] = await Promise.all([
-        fetchSeverityPage("CRITICAL"),
-        hasApiKey
-          ? fetchSeverityPage("HIGH")
-          : new Promise<CveEntry[]>((resolve) =>
-              setTimeout(() => resolve(fetchSeverityPage("HIGH")), 6000)
-            ),
-        hasApiKey
-          ? fetchSeverityPage("MEDIUM")
-          : new Promise<CveEntry[]>((resolve) =>
-              setTimeout(() => resolve(fetchSeverityPage("MEDIUM")), 12000)
-            ),
-      ]);
-
-      // Deduplicate (a CVE can theoretically appear in multiple buckets)
-      const seen = new Set<string>();
-      const allEntries: CveEntry[] = [];
-      for (const entry of [...critical, ...high, ...medium]) {
-        if (!seen.has(entry.cveId)) {
-          seen.add(entry.cveId);
-          allEntries.push(entry);
-        }
-      }
-
-      // EPSS lookups are batched + cached for 24h (lib/epss.ts) and never throw — a FIRST.org
-      // outage just leaves scores null rather than failing the CVE refresh.
-      const epss = await getEpssScores(allEntries.map((e) => e.cveId));
-      const enriched: CveEntry[] = applyEpss(allEntries, epss);
+      // Order is preserved, so the weekly entries stay at the front.
+      const all = await enrichEntries([...weekly, ...older]);
+      const enriched = all.slice(0, weekly.length);
 
       setCache(cacheKey, enriched, 60 * 60 * 1000); // 1-hour TTL
+      lastGoodWeekly = enriched;
       metrics.recordFetchSuccess("weekly");
 
       // Best-effort persistence — never let a slow/unavailable Postgres delay
       // the response that triggered this fetch.
-      void saveCveSnapshots(enriched);
-      void notifyNewZeroDays(enriched);
+      void saveCveSnapshots(all);
+      void notifyAlerts(all);
 
       return enriched;
     } catch (err) {
       metrics.recordFetchError("weekly", err);
+      // A partial list would look like a quiet week, so keep serving the last complete one.
+      if (lastGoodWeekly) {
+        logger.warn({ err }, "Weekly CVE fetch failed; serving the last complete dataset");
+        setCache(cacheKey, lastGoodWeekly, STALE_RETRY_TTL);
+        return lastGoodWeekly;
+      }
       throw err;
     }
   };
@@ -818,10 +883,14 @@ export async function warmWeeklyCache(): Promise<void> {
   // immediately so the first request after a cold start doesn't wait on NVD.
   const snapshot = await loadCveSnapshots();
   if (snapshot && snapshot.length > 0) {
-    setCache("weekly_cves", snapshot, 60 * 60 * 1000);
-    logger.info({ count: snapshot.length }, "Warmed weekly CVE cache from Postgres snapshot");
-    // Zero-days already in the last persisted snapshot were present before this restart —
-    // don't re-alert them, but do alert anything that appeared while we were down.
+    // The table keeps every CVE ever seen, but the cache only holds the 7-day window.
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recent = snapshot.filter((c) => new Date(c.publishedDate).getTime() >= weekAgo);
+    setCache("weekly_cves", recent, 60 * 60 * 1000);
+    lastGoodWeekly = recent;
+    logger.info({ count: recent.length }, "Warmed weekly CVE cache from Postgres snapshot");
+    // Anything already in the last persisted snapshot was present before this restart —
+    // don't re-alert it, but do alert anything that appeared while we were down.
     seedAlertBaseline(snapshot);
   }
 
@@ -923,8 +992,17 @@ router.get("/cves/search", async (req: Request, res: Response) => {
   try {
     const query = parseRequest(GetCvesSearchQueryParams, req.query, req, res);
     if (!query) return;
+    const { q, cwe, severity, exploited, minEpss } = query;
+    if (!q && !cwe && !severity && !exploited && minEpss === undefined) {
+      res.status(400).json({ error: "Provide q or at least one filter" });
+      return;
+    }
     const limit = query.limit ?? 25;
-    const dbResults = await searchCveSnapshots(query.q, limit);
+
+    // EPSS isn't persisted, so minEpss can only be answered from the in-memory weekly data.
+    const dbResults = minEpss === undefined
+      ? await searchCveSnapshots({ q, cwe, severity, exploited }, limit)
+      : null;
 
     if (dbResults !== null) {
       res.json(dbResults);
@@ -935,14 +1013,21 @@ router.get("/cves/search", async (req: Request, res: Response) => {
     // in-memory weekly cache, scoped to whatever the last 7-day fetch covers.
     const kevMap = await fetchKevCatalog();
     const cves = await fetchWeeklyCves(kevMap);
-    const needle = query.q.toLowerCase();
-    const matches = cves
-      .filter((c) =>
+    const needle = q?.toLowerCase();
+    const filtered = cves.filter((c) =>
+      (!needle ||
         c.cveId.toLowerCase().includes(needle) ||
         c.description.toLowerCase().includes(needle) ||
-        (c.vendor ?? "").toLowerCase().includes(needle)
-      )
-      .slice(0, limit);
+        (c.vendor ?? "").toLowerCase().includes(needle)) &&
+      (!cwe || c.cweIds.includes(cwe)) &&
+      (!severity || c.severity === severity) &&
+      (!exploited || c.isKnownExploited) &&
+      (minEpss === undefined || (c.epssScore ?? -1) >= minEpss)
+    );
+    const matches = (minEpss === undefined
+      ? filtered
+      : [...filtered].sort((a, b) => (b.epssScore ?? 0) - (a.epssScore ?? 0))
+    ).slice(0, limit);
     res.json(matches);
   } catch (err) {
     req.log.error({ err }, "Failed to search CVEs");
@@ -1122,7 +1207,7 @@ router.get("/cves/:cveId", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "CVE not found" });
     }
 
-    const [entry] = applyEpss([extractFromNvdItem(item, kevMap)], await getEpssScores([cveId]));
+    const [entry] = await enrichEntries([extractFromNvdItem(item, kevMap)]);
     const detail = { ...entry, kevDetails: kevMap.get(cveId) ?? null };
     return res.json(detail);
   } catch (err) {

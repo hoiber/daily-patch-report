@@ -36,6 +36,9 @@ export const GetDailyCvesResponseItem = zod.object({
   "cvssVector": zod.string().nullish(),
   "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
   "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
+  "ssvcExploitation": zod.union([zod.literal('none'),zod.literal('poc'),zod.literal('active'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC exploitation status; null if not assessed'),
+  "ssvcAutomatable": zod.union([zod.literal('yes'),zod.literal('no'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC - whether exploitation can be automated'),
+  "ssvcTechnicalImpact": zod.union([zod.literal('partial'),zod.literal('total'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC technical impact'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -106,10 +109,14 @@ export const GetCveChangesResponse = zod.array(GetCveChangesResponseItem)
 
 
 /**
- * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE). Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days.
- * @summary Search CVEs by ID, description, or vendor
+ * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE), combined with optional filters. At least one of q, cwe, severity, exploited, or minEpss is required. Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days. minEpss always uses the in-memory cache, because EPSS scores are not persisted.
+ * @summary Search CVEs by text and filters
  */
 export const getCvesSearchQueryQMin = 2;
+
+export const getCvesSearchQueryCweRegExp = new RegExp('^CWE-[0-9]{1,6}$');
+export const getCvesSearchQueryMinEpssMin = 0;
+export const getCvesSearchQueryMinEpssMax = 1;
 
 export const getCvesSearchQueryLimitDefault = 25;
 export const getCvesSearchQueryLimitMax = 100;
@@ -117,7 +124,11 @@ export const getCvesSearchQueryLimitMax = 100;
 
 
 export const GetCvesSearchQueryParams = zod.object({
-  "q": zod.coerce.string().min(getCvesSearchQueryQMin).describe('Search text, matched against CVE ID, description, and vendor'),
+  "q": zod.coerce.string().min(getCvesSearchQueryQMin).optional().describe('Search text, matched against CVE ID, description, and vendor'),
+  "cwe": zod.coerce.string().regex(getCvesSearchQueryCweRegExp).optional().describe('Only CVEs with this CWE weakness, e.g. CWE-79'),
+  "severity": zod.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).optional().describe('Only CVEs with this severity'),
+  "exploited": zod.coerce.boolean().optional().describe('Only CVEs in the CISA KEV catalog'),
+  "minEpss": zod.coerce.number().min(getCvesSearchQueryMinEpssMin).max(getCvesSearchQueryMinEpssMax).optional().describe('Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days'),
   "limit": zod.coerce.number().int().max(getCvesSearchQueryLimitMax).default(getCvesSearchQueryLimitDefault).describe('Maximum number of entries to return')
 })
 
@@ -131,6 +142,9 @@ export const GetCvesSearchResponseItem = zod.object({
   "cvssVector": zod.string().nullish(),
   "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
   "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
+  "ssvcExploitation": zod.union([zod.literal('none'),zod.literal('poc'),zod.literal('active'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC exploitation status; null if not assessed'),
+  "ssvcAutomatable": zod.union([zod.literal('yes'),zod.literal('no'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC - whether exploitation can be automated'),
+  "ssvcTechnicalImpact": zod.union([zod.literal('partial'),zod.literal('total'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC technical impact'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -182,7 +196,9 @@ export const GetMetricsResponse = zod.object({
   "ptReleases": zod.string().nullish(),
   "ptDigest": zod.string().nullish(),
   "epss": zod.string().nullish(),
-  "alerts": zod.string().nullish()
+  "alerts": zod.string().nullish(),
+  "cveOrg": zod.string().nullish(),
+  "redhat": zod.string().nullish()
 }),
   "lastError": zod.object({
   "daily": zod.object({
@@ -210,6 +226,14 @@ export const GetMetricsResponse = zod.object({
   "at": zod.string().optional()
 }).nullish(),
   "alerts": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "cveOrg": zod.object({
+  "message": zod.string().optional(),
+  "at": zod.string().optional()
+}).nullish(),
+  "redhat": zod.object({
   "message": zod.string().optional(),
   "at": zod.string().optional()
 }).nullish()
@@ -404,6 +428,9 @@ export const GetWeeklyCvesResponseItem = zod.object({
   "cvssVector": zod.string().nullish(),
   "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
   "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
+  "ssvcExploitation": zod.union([zod.literal('none'),zod.literal('poc'),zod.literal('active'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC exploitation status; null if not assessed'),
+  "ssvcAutomatable": zod.union([zod.literal('yes'),zod.literal('no'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC - whether exploitation can be automated'),
+  "ssvcTechnicalImpact": zod.union([zod.literal('partial'),zod.literal('total'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC technical impact'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -449,6 +476,9 @@ export const GetWeeklyDigestResponse = zod.object({
   "cvssVector": zod.string().nullish(),
   "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
   "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
+  "ssvcExploitation": zod.union([zod.literal('none'),zod.literal('poc'),zod.literal('active'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC exploitation status; null if not assessed'),
+  "ssvcAutomatable": zod.union([zod.literal('yes'),zod.literal('no'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC - whether exploitation can be automated'),
+  "ssvcTechnicalImpact": zod.union([zod.literal('partial'),zod.literal('total'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC technical impact'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),
@@ -511,6 +541,9 @@ export const GetCveByIdResponse = zod.object({
   "cvssVector": zod.string().nullish(),
   "epssScore": zod.number().nullish().describe('EPSS probability (0-1) of exploitation in the next 30 days (FIRST.org); null if not yet scored'),
   "epssPercentile": zod.number().nullish().describe('EPSS percentile (0-1) relative to all scored CVEs'),
+  "ssvcExploitation": zod.union([zod.literal('none'),zod.literal('poc'),zod.literal('active'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC exploitation status; null if not assessed'),
+  "ssvcAutomatable": zod.union([zod.literal('yes'),zod.literal('no'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC - whether exploitation can be automated'),
+  "ssvcTechnicalImpact": zod.union([zod.literal('partial'),zod.literal('total'),zod.literal(null)]).nullish().describe('CISA Vulnrichment SSVC technical impact'),
   "hasKnownPatch": zod.boolean(),
   "isKnownExploited": zod.boolean(),
   "affectedProducts": zod.array(zod.string()).optional(),

@@ -73,10 +73,10 @@ test("GET /api/cves/daily only includes CVEs published in the last 24h", async (
 });
 
 test("weekly data is cached: repeat requests don't re-hit NVD", async () => {
-  const before = srv.upstreamCalls.filter((u) => u.includes("cvssV3Severity")).length;
+  const before = srv.upstreamCalls.filter((u) => u.includes("pubStartDate")).length;
   await get("/api/cves/weekly");
   await get("/api/cves/daily");
-  const afterCount = srv.upstreamCalls.filter((u) => u.includes("cvssV3Severity")).length;
+  const afterCount = srv.upstreamCalls.filter((u) => u.includes("pubStartDate")).length;
   assert.equal(afterCount, before);
 });
 
@@ -161,4 +161,33 @@ test("EPSS is fetched in one batched request, not per CVE", async () => {
   const epssCalls = srv.upstreamCalls.filter((u) => u.includes("api.first.org"));
   assert.equal(epssCalls.length, 1);
   assert.match(decodeURIComponent(epssCalls[0]), /cve=CVE-2026-\d{4},CVE-2026-\d{4},CVE-2026-\d{4}/);
+});
+
+test("weekly CVEs carry SSVC and CWE data from CVE.org", async () => {
+  const { body } = await get("/api/cves/weekly");
+  const cve = body.find((c: { cveId: string }) => c.cveId === "CVE-2026-0003");
+  assert.equal(cve.ssvcExploitation, "poc");
+  assert.equal(cve.ssvcAutomatable, "yes");
+  assert.equal(cve.ssvcTechnicalImpact, "total");
+  assert.deepEqual(cve.cweIds, ["CWE-787"]);
+});
+
+test("GET /api/cves/search filters without a text query", async () => {
+  const ids = async (qs: string) => {
+    const { status, body } = await get(`/api/cves/search?${qs}`);
+    assert.equal(status, 200, qs);
+    return body.map((c: { cveId: string }) => c.cveId).sort();
+  };
+  assert.deepEqual(await ids("cwe=CWE-787"), ["CVE-2026-0003"]);
+  assert.deepEqual(await ids("exploited=true"), ["CVE-2026-0002"]);
+  assert.deepEqual(await ids("severity=HIGH"), ["CVE-2026-0003"]);
+  assert.deepEqual(await ids("minEpss=0.5"), ["CVE-2026-0001"]);
+  assert.deepEqual(await ids("q=router&severity=HIGH"), []);
+});
+
+test("GET /api/cves/search needs a query or filter, and rejects bad filters", async () => {
+  for (const qs of ["", "limit=5", "cwe=79", "minEpss=2", "severity=BOGUS"]) {
+    const { status } = await get(`/api/cves/search?${qs}`);
+    assert.equal(status, 400, qs);
+  }
 });

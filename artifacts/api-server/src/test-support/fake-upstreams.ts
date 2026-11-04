@@ -11,21 +11,23 @@ const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3600_000).toISOStri
 
 export function nvdItem(opts: {
   id: string;
-  score: number;
+  score: number | null;
   publishedHoursAgo: number;
   description: string;
   patchUrl?: string;
   cpe?: string;
+  cvssVersion?: 3 | 4;
+  vulnStatus?: string;
 }) {
+  const cvss = { cvssData: { baseScore: opts.score, vectorString: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" } };
   return {
     cve: {
       id: opts.id,
       published: hoursAgo(opts.publishedHoursAgo),
       lastModified: hoursAgo(opts.publishedHoursAgo),
       descriptions: [{ lang: "en", value: opts.description }],
-      metrics: {
-        cvssMetricV31: [{ cvssData: { baseScore: opts.score, vectorString: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" } }],
-      },
+      vulnStatus: opts.vulnStatus ?? "Analyzed",
+      metrics: opts.score === null ? {} : opts.cvssVersion === 4 ? { cvssMetricV40: [cvss] } : { cvssMetricV31: [cvss] },
       references: opts.patchUrl ? [{ url: opts.patchUrl, tags: ["Patch"] }] : [{ url: "https://example.com/writeup" }],
       configurations: opts.cpe ? [{ nodes: [{ cpeMatch: [{ criteria: opts.cpe }] }] }] : [],
     },
@@ -90,15 +92,42 @@ type Handler = (url: URL) => Response | undefined;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-/** Default upstream: NVD answers per cvssV3Severity / cveId / hasKev, CISA answers FIXTURE_KEV, anything else 503. */
+const ALL_FIXTURE_CVES = [...FIXTURE_CVES.CRITICAL, ...FIXTURE_CVES.HIGH, ...FIXTURE_CVES.MEDIUM];
+
+// Shaped like a real CVE.org record, trimmed to the fields the app reads.
+export const FIXTURE_CVE_ORG: Record<string, unknown> = {
+  "CVE-2026-0003": {
+    containers: {
+      cna: { problemTypes: [{ descriptions: [{ cweId: "CWE-787", lang: "en", type: "CWE" }] }] },
+      adp: [
+        {
+          providerMetadata: { shortName: "CISA-ADP" },
+          metrics: [
+            {
+              other: {
+                type: "ssvc",
+                content: { options: [{ Exploitation: "poc" }, { Automatable: "yes" }, { "Technical Impact": "total" }] },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
+};
+
+/** Default upstream: NVD answers date-window / cveId / hasKev queries, CISA answers FIXTURE_KEV, anything else 503. */
 export const healthyUpstream: Handler = (url) => {
   if (url.hostname === "services.nvd.nist.gov") {
-    const sev = url.searchParams.get("cvssV3Severity") as keyof typeof FIXTURE_CVES | null;
-    if (sev) return json({ totalResults: FIXTURE_CVES[sev].length, vulnerabilities: FIXTURE_CVES[sev] });
+    if (url.searchParams.has("pubStartDate")) {
+      return json({ totalResults: ALL_FIXTURE_CVES.length, vulnerabilities: ALL_FIXTURE_CVES });
+    }
+    if (url.searchParams.has("lastModStartDate") || url.searchParams.has("kevStartDate")) {
+      return json({ totalResults: 0, vulnerabilities: [] });
+    }
     const cveId = url.searchParams.get("cveId");
     if (cveId) {
-      const all = [...FIXTURE_CVES.CRITICAL, ...FIXTURE_CVES.HIGH, ...FIXTURE_CVES.MEDIUM];
-      const hit = all.filter((i) => i.cve.id === cveId);
+      const hit = ALL_FIXTURE_CVES.filter((i) => i.cve.id === cveId);
       return json({ totalResults: hit.length, vulnerabilities: hit });
     }
     if (url.searchParams.has("hasKev")) {
@@ -106,6 +135,11 @@ export const healthyUpstream: Handler = (url) => {
     }
   }
   if (url.hostname === "www.cisa.gov") return json(FIXTURE_KEV);
+  if (url.hostname === "cveawg.mitre.org") {
+    const record = FIXTURE_CVE_ORG[url.pathname.split("/").pop() ?? ""];
+    return record ? json(record) : json({ message: "not found" }, 404);
+  }
+  if (url.hostname === "access.redhat.com") return json([]);
   if (url.hostname === "api.first.org") {
     const ids = (url.searchParams.get("cve") ?? "").split(",");
     return json({ data: FIXTURE_EPSS.filter((e) => ids.includes(e.cve)) });
@@ -123,7 +157,7 @@ export interface TestServer {
 
 export async function startTestServer(handler: Handler = healthyUpstream): Promise<TestServer> {
   // Set before the app (and cves.ts's module-level NVD_HEADERS) loads: with an API key the
-  // weekly fetch runs its severity buckets concurrently instead of staggering them 6s/12s.
+  // weekly fetch doesn't wait 6s between NVD requests.
   process.env.NVD_API ??= "test-key";
   process.env.LOG_LEVEL ??= "silent";
   delete process.env.DATABASE_URL;
