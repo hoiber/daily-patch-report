@@ -100,6 +100,7 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
 const CVE_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const KEV_CACHE_TTL = 60 * 60 * 1000;        // 1 hour
 const KEV_CVSS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const KEV_CVSS_RETRY_TTL = 5 * 60 * 1000; // a partial map shouldn't stick around for 6 hours
 
 // An NVD_API key raises the rate limit from 1 req/6s to 50 req/30s.
 const NVD_HEADERS: Record<string, string> = {
@@ -153,13 +154,15 @@ async function fetchKevCvssMap(): Promise<Map<string, { severity: "CRITICAL" | "
   let startIndex = 0;
   const pageSize = 2000;
   let totalResults = Infinity;
+  let complete = true;
 
   while (startIndex < totalResults) {
     const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?hasKev&resultsPerPage=${pageSize}&startIndex=${startIndex}`;
     try {
-      const res = await fetch(url, { headers: NVD_HEADERS, signal: AbortSignal.timeout(20000) });
+      const res = await fetch(url, { headers: NVD_HEADERS, signal: AbortSignal.timeout(60000) });
       if (!res.ok) {
         logger.warn({ status: res.status }, "NVD KEV CVSS fetch failed, skipping enrichment");
+        complete = false;
         break;
       }
       const json = (await res.json()) as {
@@ -191,45 +194,63 @@ async function fetchKevCvssMap(): Promise<Map<string, { severity: "CRITICAL" | "
       }
     } catch (err) {
       logger.warn({ err }, "NVD KEV CVSS fetch error, using partial data");
+      complete = false;
       break;
     }
   }
 
-  setCache("kev_cvss_map", map, KEV_CVSS_CACHE_TTL);
+  setCache("kev_cvss_map", map, complete ? KEV_CVSS_CACHE_TTL : KEV_CVSS_RETRY_TTL);
   return map;
 }
 
 // ─── Data fetchers ───────────────────────────────────────────────────────────
 
+interface CisaKevFeed {
+  vulnerabilities: Array<{
+    cveID: string;
+    vendorProject: string;
+    product: string;
+    vulnerabilityName: string;
+    dateAdded: string;
+    shortDescription: string;
+    requiredAction: string;
+    dueDate: string;
+    knownRansomwareCampaignUse: string;
+    notes?: string;
+  }>;
+}
+
+// The timeout also covers reading the body, so the read has to happen here. Left until after the
+// slower NVD lookup in loadKevCatalog, it would be aborted whenever NVD took over 15s.
+async function fetchCisaKevFeed(): Promise<CisaKevFeed> {
+  const res = await fetch(
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+    { signal: AbortSignal.timeout(15000) }
+  );
+  if (!res.ok) throw new Error(`KEV fetch failed: ${res.status}`);
+  return (await res.json()) as CisaKevFeed;
+}
+
+// Every route needs this, so a cold start would otherwise send each parallel page request to NVD.
+let kevFetchInFlight: Promise<Map<string, KevEntry>> | null = null;
+
 async function fetchKevCatalog(): Promise<Map<string, KevEntry>> {
   const cached = getCache<Map<string, KevEntry>>("kev_map");
   if (cached) return cached;
 
+  kevFetchInFlight ??= loadKevCatalog().finally(() => {
+    kevFetchInFlight = null;
+  });
+  return kevFetchInFlight;
+}
+
+async function loadKevCatalog(): Promise<Map<string, KevEntry>> {
   try {
     logger.info("Fetching CISA KEV catalog");
-    const [cisaRes, cvssMap] = await Promise.all([
-      fetch(
-        "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
-        { signal: AbortSignal.timeout(15000) }
-      ),
+    const [json, cvssMap] = await Promise.all([
+      fetchCisaKevFeed(),
       fetchKevCvssMap().catch(() => new Map()),
     ]);
-    if (!cisaRes.ok) throw new Error(`KEV fetch failed: ${cisaRes.status}`);
-
-    const json = (await cisaRes.json()) as {
-      vulnerabilities: Array<{
-        cveID: string;
-        vendorProject: string;
-        product: string;
-        vulnerabilityName: string;
-        dateAdded: string;
-        shortDescription: string;
-        requiredAction: string;
-        dueDate: string;
-        knownRansomwareCampaignUse: string;
-        notes?: string;
-      }>;
-    };
 
     const map = new Map<string, KevEntry>();
     for (const v of json.vulnerabilities) {
@@ -826,6 +847,7 @@ async function fetchWeeklyCves(kevMap: Map<string, KevEntry>, opts?: { force?: b
       const enriched = all.slice(0, weekly.length);
 
       setCache(cacheKey, enriched, 60 * 60 * 1000); // 1-hour TTL
+      cache.delete("daily_cves"); // derived from weekly, so it's now out of date
       lastGoodWeekly = enriched;
       metrics.recordFetchSuccess("weekly");
 
@@ -885,7 +907,10 @@ export async function warmWeeklyCache(): Promise<void> {
   if (snapshot && snapshot.length > 0) {
     // The table keeps every CVE ever seen, but the cache only holds the 7-day window.
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const recent = snapshot.filter((c) => new Date(c.publishedDate).getTime() >= weekAgo);
+    const inWindow = snapshot.filter((c) => new Date(c.publishedDate).getTime() >= weekAgo);
+    // EPSS isn't persisted. It's quick to fetch, so don't leave it blank until the much slower
+    // full refresh finishes. The scores stay cached, so that refresh reuses them.
+    const recent = applyEpss(inWindow, await getEpssScores(inWindow.map((c) => c.cveId)));
     setCache("weekly_cves", recent, 60 * 60 * 1000);
     lastGoodWeekly = recent;
     logger.info({ count: recent.length }, "Warmed weekly CVE cache from Postgres snapshot");
