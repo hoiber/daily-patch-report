@@ -34,25 +34,25 @@ packages:
   - scripts
 
 catalog:
-  '@tailwindcss/vite': ^4.3.3
-  '@tanstack/react-query': ^5.104.5
+  '@tailwindcss/vite': ^4.3.5
+  '@tanstack/react-query': ^5.107.1
   '@types/node': ^25.9.9
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
-  '@vitejs/plugin-react': ^6.1.2
+  '@vitejs/plugin-react': ^6.3.0
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   drizzle-orm: ^0.45.4
   framer-motion: ^12.43.0
-  lucide-react: ^1.59.0
-  # Must be this exact version because expo requires it
-  react: 19.1.0
-  # Must be this exact version because expo requires it
-  react-dom: 19.1.0
+  lucide-react: ^1.73.0
+  # Exact pin: keep react and react-dom in lockstep
+  react: 19.3.1
+  # Exact pin: keep react and react-dom in lockstep
+  react-dom: 19.3.1
   tailwind-merge: ^3.7.0
-  tailwindcss: ^4.3.3
+  tailwindcss: ^4.3.5
   tsx: ^4.23.15
-  vite: ^8.3.4
+  vite: ^8.3.8
   wouter: ^3.13.0
   zod: ^4.6.7
 

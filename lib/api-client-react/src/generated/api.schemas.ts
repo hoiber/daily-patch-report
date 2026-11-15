@@ -591,14 +591,10 @@ export interface Metrics {
 }
 
 export type GetDailyCvesParams = {
-/**
- * Filter by CVSS severity
- */
-severity?: GetDailyCvesSeverity;
-/**
- * Return only CVEs with known patches
- */
-patchedOnly?: boolean;
+  /** Filter by CVSS severity */
+  severity?: GetDailyCvesSeverity;
+  /** Return only CVEs with known patches */
+  patchedOnly?: boolean;
 };
 
 export type GetDailyCvesSeverity = typeof GetDailyCvesSeverity[keyof typeof GetDailyCvesSeverity];
@@ -612,30 +608,22 @@ export const GetDailyCvesSeverity = {
 } as const;
 
 export type GetKevListParams = {
-/**
- * Maximum number of entries to return
- */
-limit?: number;
+  /** Maximum number of entries to return */
+  limit?: number;
 };
 
 export type GetCveChangesParams = {
-/**
- * Maximum number of entries to return
- * @maximum 100
- */
-limit?: number;
-/**
- * Filter to changes of a single tracked field
- */
-field?: GetCveChangesField;
-/**
- * Filter to changes for a single CVE
- */
-cveId?: string;
-/**
- * Number of entries to skip, for pagination
- */
-offset?: number;
+  /**
+   * Maximum number of entries to return
+   * @maximum 100
+   */
+  limit?: number;
+  /** Filter to changes of a single tracked field */
+  field?: GetCveChangesField;
+  /** Filter to changes for a single CVE */
+  cveId?: string;
+  /** Number of entries to skip, for pagination */
+  offset?: number;
 };
 
 export type GetCveChangesField = typeof GetCveChangesField[keyof typeof GetCveChangesField];
@@ -649,35 +637,31 @@ export const GetCveChangesField = {
 } as const;
 
 export type GetCvesSearchParams = {
-/**
- * Search text, matched against CVE ID, description, and vendor
- * @minLength 2
- */
-q?: string;
-/**
- * Only CVEs with this CWE weakness, e.g. CWE-79
- * @pattern ^CWE-[0-9]{1,6}$
- */
-cwe?: string;
-/**
- * Only CVEs with this severity
- */
-severity?: GetCvesSearchSeverity;
-/**
- * Only CVEs in the CISA KEV catalog
- */
-exploited?: boolean;
-/**
- * Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
- * @minimum 0
- * @maximum 1
- */
-minEpss?: number;
-/**
- * Maximum number of entries to return
- * @maximum 100
- */
-limit?: number;
+  /**
+   * Search text, matched against CVE ID, description, and vendor
+   * @minLength 2
+   */
+  q?: string;
+  /**
+   * Only CVEs with this CWE weakness, e.g. CWE-79
+   * @pattern ^CWE-[0-9]{1,6}$
+   */
+  cwe?: string;
+  /** Only CVEs with this severity */
+  severity?: GetCvesSearchSeverity;
+  /** Only CVEs in the CISA KEV catalog */
+  exploited?: boolean;
+  /**
+   * Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
+   * @minimum 0
+   * @maximum 1
+   */
+  minEpss?: number;
+  /**
+   * Maximum number of entries to return
+   * @maximum 100
+   */
+  limit?: number;
 };
 
 export type GetCvesSearchSeverity = typeof GetCvesSearchSeverity[keyof typeof GetCvesSearchSeverity];
@@ -691,37 +675,29 @@ export const GetCvesSearchSeverity = {
 } as const;
 
 export type GetCvesTrendParams = {
-/**
- * Number of trailing days to cover (clamped to 1-90)
- * @minimum 1
- * @maximum 90
- */
-days?: number;
+  /**
+   * Number of trailing days to cover (clamped to 1-90)
+   * @minimum 1
+   * @maximum 90
+   */
+  days?: number;
 };
 
 export type GetPatchTuesdayIssuesParams = {
-/**
- * Release ID (e.g. 2025-Jun). Defaults to latest.
- */
-releaseId?: string;
+  /** Release ID (e.g. 2025-Jun). Defaults to latest. */
+  releaseId?: string;
 };
 
 export type GetPatchTuesdayDigestParams = {
-/**
- * Release ID (e.g. 2024-Dec). Defaults to latest.
- */
-releaseId?: string;
+  /** Release ID (e.g. 2024-Dec). Defaults to latest. */
+  releaseId?: string;
 };
 
 export type GetWeeklyCvesParams = {
-/**
- * Filter by CVSS severity
- */
-severity?: GetWeeklyCvesSeverity;
-/**
- * Return only CVEs with known patches
- */
-patchedOnly?: boolean;
+  /** Filter by CVSS severity */
+  severity?: GetWeeklyCvesSeverity;
+  /** Return only CVEs with known patches */
+  patchedOnly?: boolean;
 };
 
 export type GetWeeklyCvesSeverity = typeof GetWeeklyCvesSeverity[keyof typeof GetWeeklyCvesSeverity];

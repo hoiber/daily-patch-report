@@ -130,9 +130,9 @@ export type HealthCheckQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns server health status
  * @summary Health check
  */
-
 export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -215,9 +215,9 @@ export type GetDailyCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns CVEs published in the last 24 hours from NVD, patched ones first
  * @summary Get today's new CVEs
  */
-
 export function useGetDailyCves<TData = Awaited<ReturnType<typeof getDailyCves>>, TError = ErrorType<ErrorResponse>>(
  params?: GetDailyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -300,9 +300,9 @@ export type GetKevListQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns actively exploited zero-days from CISA KEV catalog
  * @summary Get CISA Known Exploited Vulnerabilities
  */
-
 export function useGetKevList<TData = Awaited<ReturnType<typeof getKevList>>, TError = ErrorType<ErrorResponse>>(
  params?: GetKevListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKevList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -385,9 +385,9 @@ export type GetCveChangesQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns the most recent tracked-field changes (severity, CVSS score, patch status, known-exploited status) recorded from successive weekly CVE fetches. Empty if no persistent store is configured.
  * @summary Get recent CVE state changes
  */
-
 export function useGetCveChanges<TData = Awaited<ReturnType<typeof getCveChanges>>, TError = ErrorType<ErrorResponse>>(
  params?: GetCveChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -470,9 +470,9 @@ export type GetCvesSearchQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Full-text-ish search across persisted CVE snapshots (Postgres ILIKE), combined with optional filters. At least one of q, cwe, severity, exploited, or minEpss is required. Falls back to filtering the current in-memory weekly cache when no persistent store is configured, in which case results are limited to the last 7 days. minEpss always uses the in-memory cache, because EPSS scores are not persisted.
  * @summary Search CVEs by text and filters
  */
-
 export function useGetCvesSearch<TData = Awaited<ReturnType<typeof getCvesSearch>>, TError = ErrorType<ErrorResponse>>(
  params?: GetCvesSearchParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesSearch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -555,9 +555,9 @@ export type GetCvesTrendQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns per-day severity counts over a longer window than the 7-day weekly digest, derived from persisted CVE snapshots. Empty if no persistent store is configured or not enough history has accumulated yet.
  * @summary Get extended historical CVE volume trend
  */
-
 export function useGetCvesTrend<TData = Awaited<ReturnType<typeof getCvesTrend>>, TError = ErrorType<ErrorResponse>>(
  params?: GetCvesTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvesTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -633,9 +633,9 @@ export type GetMetricsQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns in-process cache hit/miss counters, last successful/failed fetch timestamps per upstream source, and Postgres write counters. For operational visibility, not end-user facing.
  * @summary Get internal operational metrics
  */
-
 export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -718,9 +718,9 @@ export type GetPatchTuesdayIssuesQueryError = ErrorType<unknown>
 
 
 /**
+ * Aggregates RSS feeds from AskWoody, BornCity, and Windows-focused news sites for the given release window
  * @summary Get community-reported known issues for a Patch Tuesday release
  */
-
 export function useGetPatchTuesdayIssues<TData = Awaited<ReturnType<typeof getPatchTuesdayIssues>>, TError = ErrorType<unknown>>(
  params?: GetPatchTuesdayIssuesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayIssues>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -796,9 +796,9 @@ export type GetPatchTuesdayReleasesQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns the last 12 monthly Patch Tuesday releases from MSRC
  * @summary List recent Patch Tuesday releases
  */
-
 export function useGetPatchTuesdayReleases<TData = Awaited<ReturnType<typeof getPatchTuesdayReleases>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayReleases>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -881,9 +881,9 @@ export type GetPatchTuesdayDigestQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns full CVE list and summary for a Patch Tuesday release
  * @summary Get Patch Tuesday CVEs for a release
  */
-
 export function useGetPatchTuesdayDigest<TData = Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError = ErrorType<ErrorResponse>>(
  params?: GetPatchTuesdayDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPatchTuesdayDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -959,9 +959,9 @@ export type GetApplePatchesQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns the latest security releases (version, release date, CVE count, actively-exploited flag) for both iOS/iPadOS and macOS, proxied from the ios-security-vulnerability-formatter service.
  * @summary Get latest Apple iOS/iPadOS and macOS security releases
  */
-
 export function useGetApplePatches<TData = Awaited<ReturnType<typeof getApplePatches>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApplePatches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1041,9 +1041,9 @@ export type GetAppleCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns per-CVE description, NVD link, actively-exploited flag, and version-specific annotation for the given (platform, version), as captured whenever that version was the current release. Empty if that version was never fetched (e.g. no persistent store configured and it isn't the live latest).
  * @summary Get per-CVE detail for one specific Apple security release
  */
-
 export function useGetAppleCves<TData = Awaited<ReturnType<typeof getAppleCves>>, TError = ErrorType<ErrorResponse>>(
  platform: 'ios' | 'macos',
     version: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
@@ -1120,9 +1120,9 @@ export type GetAppleHistoryQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns every distinct (platform, version) release api-server has ever seen for this platform, newest first — an accumulating changelog independent of the upstream tool, which only ever reports the current latest release(s). Empty if no persistent store is configured.
  * @summary Get historical Apple security releases
  */
-
 export function useGetAppleHistory<TData = Awaited<ReturnType<typeof getAppleHistory>>, TError = ErrorType<ErrorResponse>>(
  platform: 'ios' | 'macos', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1203,6 +1203,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
     /**
+ * Bypasses the daily 07:00 AEST schedule and fetches now. Rate-limited to once every 5 minutes — returns 429 with a retryAfterSeconds field if called again too soon.
  * @summary Force an immediate Apple patch data refresh
  */
 export const usePostAppleRefresh = <TError = ErrorType<unknown>,
@@ -1280,9 +1281,9 @@ export type GetWeeklyCvesQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns the full list of CVEs published in the last 7 days, patched first
  * @summary Get all CVEs from the past 7 days
  */
-
 export function useGetWeeklyCves<TData = Awaited<ReturnType<typeof getWeeklyCves>>, TError = ErrorType<ErrorResponse>>(
  params?: GetWeeklyCvesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyCves>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1358,9 +1359,9 @@ export type GetWeeklyDigestQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns the past 7 days of CVEs grouped by impacted platform/device type
  * @summary Get weekly digest grouped by platform
  */
-
 export function useGetWeeklyDigest<TData = Awaited<ReturnType<typeof getWeeklyDigest>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1436,9 +1437,9 @@ export type GetCveSummaryQueryError = ErrorType<unknown>
 
 
 /**
+ * Returns aggregated stats for today's CVE report
  * @summary Get daily summary stats
  */
-
 export function useGetCveSummary<TData = Awaited<ReturnType<typeof getCveSummary>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
@@ -1514,9 +1515,9 @@ export type GetCveByIdQueryError = ErrorType<ErrorResponse>
 
 
 /**
+ * Returns detailed information for a specific CVE
  * @summary Get CVE details
  */
-
 export function useGetCveById<TData = Awaited<ReturnType<typeof getCveById>>, TError = ErrorType<ErrorResponse>>(
  cveId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCveById>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 

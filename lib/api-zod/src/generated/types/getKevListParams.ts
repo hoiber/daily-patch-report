@@ -7,8 +7,6 @@
  */
 
 export type GetKevListParams = {
-/**
- * Maximum number of entries to return
- */
-limit?: number;
+  /** Maximum number of entries to return */
+  limit?: number;
 };

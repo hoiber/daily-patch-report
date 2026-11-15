@@ -7,8 +7,6 @@
  */
 
 export type GetPatchTuesdayIssuesParams = {
-/**
- * Release ID (e.g. 2025-Jun). Defaults to latest.
- */
-releaseId?: string;
+  /** Release ID (e.g. 2025-Jun). Defaults to latest. */
+  releaseId?: string;
 };

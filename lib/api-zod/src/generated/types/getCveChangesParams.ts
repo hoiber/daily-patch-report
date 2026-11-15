@@ -8,21 +8,15 @@
 import type { GetCveChangesField } from './getCveChangesField';
 
 export type GetCveChangesParams = {
-/**
- * Maximum number of entries to return
- * @maximum 100
- */
-limit?: number;
-/**
- * Filter to changes of a single tracked field
- */
-field?: GetCveChangesField;
-/**
- * Filter to changes for a single CVE
- */
-cveId?: string;
-/**
- * Number of entries to skip, for pagination
- */
-offset?: number;
+  /**
+   * Maximum number of entries to return
+   * @maximum 100
+   */
+  limit?: number;
+  /** Filter to changes of a single tracked field */
+  field?: GetCveChangesField;
+  /** Filter to changes for a single CVE */
+  cveId?: string;
+  /** Number of entries to skip, for pagination */
+  offset?: number;
 };

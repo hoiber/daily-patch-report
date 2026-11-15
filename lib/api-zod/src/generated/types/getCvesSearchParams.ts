@@ -8,33 +8,29 @@
 import type { GetCvesSearchSeverity } from './getCvesSearchSeverity';
 
 export type GetCvesSearchParams = {
-/**
- * Search text, matched against CVE ID, description, and vendor
- * @minLength 2
- */
-q?: string;
-/**
- * Only CVEs with this CWE weakness, e.g. CWE-79
- * @pattern ^CWE-[0-9]{1,6}$
- */
-cwe?: string;
-/**
- * Only CVEs with this severity
- */
-severity?: GetCvesSearchSeverity;
-/**
- * Only CVEs in the CISA KEV catalog
- */
-exploited?: boolean;
-/**
- * Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
- * @minimum 0
- * @maximum 1
- */
-minEpss?: number;
-/**
- * Maximum number of entries to return
- * @maximum 100
- */
-limit?: number;
+  /**
+   * Search text, matched against CVE ID, description, and vendor
+   * @minLength 2
+   */
+  q?: string;
+  /**
+   * Only CVEs with this CWE weakness, e.g. CWE-79
+   * @pattern ^CWE-[0-9]{1,6}$
+   */
+  cwe?: string;
+  /** Only CVEs with this severity */
+  severity?: GetCvesSearchSeverity;
+  /** Only CVEs in the CISA KEV catalog */
+  exploited?: boolean;
+  /**
+   * Only CVEs with at least this EPSS probability (0-1); limited to the last 7 days
+   * @minimum 0
+   * @maximum 1
+   */
+  minEpss?: number;
+  /**
+   * Maximum number of entries to return
+   * @maximum 100
+   */
+  limit?: number;
 };

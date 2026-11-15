@@ -7,10 +7,10 @@
  */
 
 export type GetCvesTrendParams = {
-/**
- * Number of trailing days to cover (clamped to 1-90)
- * @minimum 1
- * @maximum 90
- */
-days?: number;
+  /**
+   * Number of trailing days to cover (clamped to 1-90)
+   * @minimum 1
+   * @maximum 90
+   */
+  days?: number;
 };

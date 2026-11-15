@@ -8,12 +8,8 @@
 import type { GetDailyCvesSeverity } from './getDailyCvesSeverity';
 
 export type GetDailyCvesParams = {
-/**
- * Filter by CVSS severity
- */
-severity?: GetDailyCvesSeverity;
-/**
- * Return only CVEs with known patches
- */
-patchedOnly?: boolean;
+  /** Filter by CVSS severity */
+  severity?: GetDailyCvesSeverity;
+  /** Return only CVEs with known patches */
+  patchedOnly?: boolean;
 };

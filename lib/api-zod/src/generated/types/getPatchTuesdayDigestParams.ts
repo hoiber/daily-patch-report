@@ -7,8 +7,6 @@
  */
 
 export type GetPatchTuesdayDigestParams = {
-/**
- * Release ID (e.g. 2024-Dec). Defaults to latest.
- */
-releaseId?: string;
+  /** Release ID (e.g. 2024-Dec). Defaults to latest. */
+  releaseId?: string;
 };
